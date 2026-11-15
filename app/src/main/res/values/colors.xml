@@ -2,5 +2,11 @@
 <resources>
     <color name="icon_background">#FF000000</color>
     <color name="background">#FFFFFFFF</color>
-    <color name="content_background">#FFDDDDDD</color>
+    <color name="content_background">#FFFAFAFA</color>
+    <color name="text">#FF000000</color>
+    <color name="secondary_text">#FFDDDDDD</color>
+    <color name="icon_compass">@color/text</color>
+    <color name="button_gradient_start">#FF387EF5</color>
+    <color name="button_gradient_end">#FF2867EC</color>
+    <color name="button_text">@color/content_background</color>
 </resources>

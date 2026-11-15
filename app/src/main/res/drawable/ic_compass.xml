@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="36"
+    android:viewportHeight="36">
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M18,3.9a14.1,14.1 0,1 1,0,28.2a14.1,14.1 0,1 1,0,-28.2"
+        android:strokeColor="@color/icon_compass"
+        android:strokeLineCap="round"
+        android:strokeWidth="2.3" />
+    <path
+        android:fillColor="@color/icon_compass"
+        android:pathData="M23.4,12.6l-3.0,7.8 -7.8,3.0 3.0,-7.8z" />
+    <path
+        android:fillColor="@color/content_background"
+        android:pathData="M18,16.5a1.5,1.5 0,1 0,0,3a1.5,1.5 0,1 0,0,-3" />
+</vector>

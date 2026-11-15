@@ -1,3 +1,19 @@
 <resources>
-    <string name="app_name">nearby</string>
+    <!-- Placeholder strings. Fill in the real values in values/strings.xml later. -->
+    <string name="app_name">app_name</string>
+    <string name="empty_title">empty_title</string>
+    <string name="target_prefix">target_prefix</string>
+    <string name="default_target">default_target</string>
+    <string name="start_capture">start_capture</string>
+    <string name="action_retry">action_retry</string>
+    <string name="action_stop">action_stop</string>
+
+    <string name="title_requesting">title_requesting</string>
+    <string name="title_capturing">title_capturing</string>
+    <string name="title_stopping">title_stopping</string>
+    <string name="title_error">title_error</string>
+
+    <string name="dialog_missing_title">dialog_missing_title</string>
+    <string name="dialog_missing_message">dialog_missing_message</string>
+    <string name="dialog_ok">dialog_ok</string>
 </resources>

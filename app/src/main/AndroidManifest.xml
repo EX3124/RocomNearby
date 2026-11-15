@@ -1,19 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- PCAPdroid is started through its exported CaptureCtrl activity. The
+         query also makes the package visible on Android 11+. -->
+    <queries>
+        <package android:name="com.emanuelef.remote_capture" />
+    </queries>
 
     <application
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Nearby">
+
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".capture.PcapCaptureService"
+            android:exported="false"
+            android:stopWithTask="false" />
+
+        <!-- Exported because PCAPdroid (a different app) sends this status
+             broadcast. It only reacts to running=false and holds no data. -->
+        <receiver
+            android:name=".capture.PcapStatusReceiver"
+            android:exported="true"
+            tools:ignore="ExportedReceiver">
+            <intent-filter>
+                <action android:name="com.emanuelef.remote_capture.CaptureStatus" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

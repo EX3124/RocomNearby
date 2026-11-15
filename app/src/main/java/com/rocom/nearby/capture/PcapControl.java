@@ -1,6 +1,5 @@
 package com.rocom.nearby.capture;
 
-import android.content.Context;
 import android.content.Intent;
 
 /** Intents used by PCAPdroid's public control API. */
@@ -17,15 +16,6 @@ public final class PcapControl {
     public static final String ACTION_GET_STATUS = "get_status";
 
     private PcapControl() {
-    }
-
-    public static boolean isInstalled(Context context) {
-        try {
-            context.getPackageManager().getPackageInfo(PCAPDROID_PACKAGE, 0);
-            return true;
-        } catch (Throwable e) {
-            return false;
-        }
     }
 
     public static Intent buildStartIntent(String targetPackage, int localPort) {

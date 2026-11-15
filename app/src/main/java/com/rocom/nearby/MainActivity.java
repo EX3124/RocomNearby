@@ -271,10 +271,6 @@ public class MainActivity extends AppCompatActivity {
         if (!commitTarget(true)) {
             return;
         }
-        if (!PcapControl.isInstalled(this)) {
-            showMissingPcapdroidDialog();
-            return;
-        }
         beginStartCapture();
     }
 
@@ -323,6 +319,7 @@ public class MainActivity extends AppCompatActivity {
             phase = Phase.ERROR;
             render();
             stopLocalReceiver();
+            showMissingPcapdroidDialog();
         }
     }
 

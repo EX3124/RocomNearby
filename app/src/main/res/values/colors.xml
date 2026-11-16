@@ -6,7 +6,11 @@
     <color name="text">#FF000000</color>
     <color name="secondary_text">#FFDDDDDD</color>
     <color name="icon_compass">@color/text</color>
-    <color name="button_gradient_start">#FF387EF5</color>
-    <color name="button_gradient_end">#FF2867EC</color>
-    <color name="button_text">@color/content_background</color>
+    <color name="action_button_gradient_start">#FF387EF5</color>
+    <color name="action_button_gradient_end">#FF2867EC</color>
+    <color name="action_button_text">@color/content_background</color>
+    <color name="float_button_background">#2E0000FF</color>
+    <color name="float_button_text">@color/action_button_gradient_end</color>
+    <color name="map_button_background">#33FFFF00</color>
+    <color name="map_button_text">#FFB45309</color>
 </resources>

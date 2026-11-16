@@ -1,19 +1,37 @@
 <resources>
     <!-- Placeholder strings. Fill in the real values in values/strings.xml later. -->
     <string name="app_name">app_name</string>
-    <string name="empty_title">empty_title</string>
-    <string name="target_prefix">target_prefix</string>
-    <string name="default_target">default_target</string>
-    <string name="start_capture">start_capture</string>
-    <string name="action_retry">action_retry</string>
-    <string name="action_stop">action_stop</string>
+    <string name="sub_title">scene_format %1$d</string>
 
+    <string name="target_prefix">target_prefix</string>
+    <string name="target_default" translatable="false">com.tencent.nrc</string>
+
+    <string name="title_default">empty_title</string>
     <string name="title_requesting">title_requesting</string>
     <string name="title_capturing">title_capturing</string>
     <string name="title_stopping">title_stopping</string>
     <string name="title_error">title_error</string>
 
+    <string name="action_start">start_capture</string>
+    <string name="action_retry">action_retry</string>
+    <string name="action_stop">action_stop</string>
+
+    <string name="float_window">float_window</string>
+    <string name="float_window_close">float_window_close</string>
+
+    <string name="map">map</string>
+
+    <string name="overlay_title">overlay_title</string>
+    <string name="overlay_close">overlay_close</string>
+
+    <string name="dialog_permission_title">dialog_permission_title</string>
+    <string name="dialog_permission_message">dialog_permission_message</string>
     <string name="dialog_missing_title">dialog_missing_title</string>
-    <string name="dialog_missing_message">dialog_missing_message</string>
-    <string name="dialog_ok">dialog_ok</string>
+    <string name="dialog_missing_message">%1$s dialog_missing_message</string>
+
+    <string name="dialog_permission">dialog_permission</string>
+    <string name="dialog_install">dialog_install</string>
+    <string name="dialog_cancel">dialog_cancel</string>
+
+    <string name="toast_overlay_failed">toast_overlay_failed</string>
 </resources>

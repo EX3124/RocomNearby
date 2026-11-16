@@ -3,9 +3,11 @@ package com.rocom.nearby;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,9 +32,11 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.lzf.easyfloat.permission.PermissionUtils;
 import com.rocom.nearby.capture.CaptureRuntime;
 import com.rocom.nearby.capture.PcapCaptureService;
 import com.rocom.nearby.capture.PcapControl;
+import com.rocom.nearby.overlay.NearbyOverlay;
 
 import java.util.regex.Pattern;
 
@@ -44,7 +48,6 @@ import java.util.regex.Pattern;
 public class MainActivity extends AppCompatActivity {
     private static final String PREFS = "nearby";
     private static final String KEY_TARGET = "target_package";
-    private static final String FALLBACK_TARGET = "com.tencent.nrc";
     private static final Pattern PACKAGE_PATTERN = Pattern.compile(
             "^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)+$");
 
@@ -59,27 +62,38 @@ public class MainActivity extends AppCompatActivity {
 
     private View root;
     private View emptyCard;
+    private View actionRow;
     private ViewGroup contentContainer;
     private View targetRow;
     private TextView targetPrefix;
     private TextView cardTitle;
+    private TextView sceneSubtitle;
+    private View floatButton;
+    private TextView floatButtonLabel;
     private ImageView compassIcon;
     private TextInputLayout targetInputLayout;
     private TextInputEditText targetInput;
     private Button actionButton;
+    private Button stopButton;
 
     private SharedPreferences preferences;
-    private String defaultTarget = FALLBACK_TARGET;
-    private String lastValidTarget = FALLBACK_TARGET;
+    private String defaultTarget;
+    private String lastValidTarget;
     private Phase phase = Phase.IDLE;
     private CaptureRuntime.Snapshot snapshot = CaptureRuntime.current();
     private boolean authorized;
     private boolean controlRequested;
     private int localPort;
+    /**
+     * Scene resource id reported by the nearby tracker. 0 means "not known yet";
+     * the subtitle stays blank until a real id arrives.
+     */
+    private int sceneId;
 
     private ActivityResultLauncher<Intent> captureStartLauncher;
     private ActivityResultLauncher<Intent> captureStopLauncher;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final NearbyOverlay.Callback overlayCallback = this::refreshFloatButton;
 
     private final CaptureRuntime.Listener captureListener = new CaptureRuntime.Listener() {
         @Override
@@ -112,11 +126,9 @@ public class MainActivity extends AppCompatActivity {
         setupActivityResults();
         setupTargetEditor();
         setupActions();
+        updateSceneSubtitle();
 
-        String localizedDefault = getString(R.string.default_target);
-        if (isValidPackage(localizedDefault)) {
-            defaultTarget = localizedDefault;
-        }
+        defaultTarget = getString(R.string.target_default);
         lastValidTarget = preferences.getString(KEY_TARGET, defaultTarget);
         if (!isValidPackage(lastValidTarget)) {
             lastValidTarget = defaultTarget;
@@ -133,8 +145,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         CaptureRuntime.setListener(captureListener);
+        NearbyOverlay.setCallback(overlayCallback);
         applySnapshot(CaptureRuntime.current());
         requestControlIfServerAlreadyWaiting();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshFloatButton();
     }
 
     @Override
@@ -146,6 +165,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         CaptureRuntime.clearListener(captureListener);
+        NearbyOverlay.clearCallback(overlayCallback);
         if (targetInput.hasFocus()) {
             commitTarget(false);
             targetInput.clearFocus();
@@ -157,14 +177,19 @@ public class MainActivity extends AppCompatActivity {
     private void bindViews() {
         root = findViewById(R.id.root);
         emptyCard = findViewById(R.id.empty_card);
+        actionRow = findViewById(R.id.action_row);
         contentContainer = findViewById(R.id.content_container);
         targetRow = findViewById(R.id.target_row);
         targetPrefix = findViewById(R.id.target_prefix);
         cardTitle = findViewById(R.id.card_title);
+        sceneSubtitle = findViewById(R.id.scene_subtitle);
+        floatButton = findViewById(R.id.float_button);
+        floatButtonLabel = findViewById(R.id.float_button_label);
         compassIcon = findViewById(R.id.compass_icon);
         targetInputLayout = findViewById(R.id.target_input_layout);
         targetInput = findViewById(R.id.target_input);
         actionButton = findViewById(R.id.action_button);
+        stopButton = findViewById(R.id.stop_button);
     }
 
     private void applyWindowInsets() {
@@ -246,6 +271,27 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        floatButton.setOnClickListener(view -> toggleFloatWindow());
+
+        stopButton.setOnClickListener(view -> {
+            if (isCaptureActive()) {
+                stopCaptureFlow();
+            }
+        });
+
+        contentContainer.setOnHierarchyChangeListener(
+                new ViewGroup.OnHierarchyChangeListener() {
+                    @Override
+                    public void onChildViewAdded(View parent, View child) {
+                        updateEmptyCardVisibility();
+                    }
+
+                    @Override
+                    public void onChildViewRemoved(View parent, View child) {
+                        updateEmptyCardVisibility();
+                    }
+                });
+
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -261,6 +307,75 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    /**
+     * Feeds the scene id once the nearby tracker can parse it out of the pcap.
+     * The header shows the original app's {@code 场景 <id>} form, and keeps its
+     * {@code 当前场景} fallback while the id is still unknown.
+     */
+    public void setSceneId(int newSceneId) {
+        int normalized = Math.max(0, newSceneId);
+        if (sceneId == normalized) {
+            return;
+        }
+        sceneId = normalized;
+        updateSceneSubtitle();
+    }
+
+    private void updateSceneSubtitle() {
+        if (sceneSubtitle == null) {
+            return;
+        }
+        sceneSubtitle.setText(sceneId > 0
+                ? getString(R.string.sub_title, sceneId)
+                : "");
+    }
+
+    private void toggleFloatWindow() {
+        if (NearbyOverlay.isShowing()) {
+            NearbyOverlay.dismiss();
+            refreshFloatButton();
+            return;
+        }
+        if (!canDrawOverlays()) {
+            showOverlayPermissionDialog();
+            return;
+        }
+        NearbyOverlay.show(this);
+        refreshFloatButton();
+    }
+
+    private void refreshFloatButton() {
+        if (floatButtonLabel == null) {
+            return;
+        }
+        int label = NearbyOverlay.isShowing()
+                ? R.string.float_window_close
+                : R.string.float_window;
+        floatButtonLabel.setText(label);
+        floatButton.setContentDescription(getString(label));
+    }
+
+    private boolean canDrawOverlays() {
+        try {
+            return PermissionUtils.checkPermission(this);
+        } catch (Throwable e) {
+            return Settings.canDrawOverlays(this);
+        }
+    }
+
+    private void showOverlayPermissionDialog() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.dialog_permission_title)
+                .setMessage(R.string.dialog_permission_message)
+                .setNegativeButton(R.string.dialog_cancel, null)
+                .setPositiveButton(R.string.dialog_permission, (dialog, which) -> {
+                    // EasyFloat checks and requests the overlay permission itself.
+                    NearbyOverlay.show(MainActivity.this);
+                    refreshFloatButton();
+                })
+                .show();
     }
 
     private void startCaptureFlow() {
@@ -445,8 +560,8 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case IDLE:
             default:
-                title = getString(R.string.empty_title);
-                button = getString(R.string.start_capture);
+                title = getString(R.string.title_default);
+                button = getString(R.string.action_start);
                 break;
         }
 
@@ -461,9 +576,11 @@ public class MainActivity extends AppCompatActivity {
         if (emptyCard == null || contentContainer == null) {
             return;
         }
-        emptyCard.setVisibility(contentContainer.getChildCount() > 0
-                ? View.GONE
-                : View.VISIBLE);
+        boolean hasContent = contentContainer.getChildCount() > 0;
+        emptyCard.setVisibility(hasContent ? View.GONE : View.VISIBLE);
+        if (actionRow != null) {
+            actionRow.setVisibility(hasContent ? View.VISIBLE : View.INVISIBLE);
+        }
     }
 
     private boolean isCaptureActive() {
@@ -537,9 +654,27 @@ public class MainActivity extends AppCompatActivity {
     private void showMissingPcapdroidDialog() {
         new MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.dialog_missing_title)
-                .setMessage(R.string.dialog_missing_message)
-                .setPositiveButton(R.string.dialog_ok, null)
+                .setMessage(getString(R.string.dialog_missing_message,
+                        getString(R.string.app_name)))
+                .setNegativeButton(R.string.dialog_cancel, null)
+                .setPositiveButton(R.string.dialog_install,
+                        (dialog, which) -> openPcapdroidStore())
                 .show();
+    }
+
+    private void openPcapdroidStore() {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW,
+                    Uri.parse("market://details?id=com.emanuelef.remote_capture"))
+                    .setPackage("com.android.vending"));
+        } catch (Throwable e) {
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://github.com/emanuele-f/PCAPdroid/releases")));
+            } catch (Throwable ignored) {
+                // Neither a market nor a browser can handle the intent.
+            }
+        }
     }
 
     private void hideKeyboard() {

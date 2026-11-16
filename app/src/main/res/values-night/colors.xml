@@ -4,5 +4,7 @@
     <color name="content_background">#101010</color>
     <color name="text">#FFFFFFFF</color>
     <color name="secondary_text">#454545</color>
-    <color name="button_text">@color/text</color>
+    <color name="action_button_text">@color/text</color>
+    <color name="float_button_background">#B9D3F4</color>
+    <color name="map_button_background">#FFFEF3C7</color>
 </resources>

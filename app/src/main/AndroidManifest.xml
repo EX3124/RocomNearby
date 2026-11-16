@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- EasyFloat's ShowPattern.ALL_TIME draws a TYPE_APPLICATION_OVERLAY window. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
         android:icon="@mipmap/ic_launcher"

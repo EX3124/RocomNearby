@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PiP-style glyph used by the header's 悬浮窗 capsule. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M21,11.5 V6 A2,2 0 0 0 19,4 H5 A2,2 0 0 0 3,6 V18 A2,2 0 0 0 5,20 H11.5"
+        android:strokeColor="@color/float_button_text"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.8" />
+
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M15,12 H19 A2,2 0 0 1 21,14 V18 A2,2 0 0 1 19,20 H15 A2,2 0 0 1 13,18 V14 A2,2 0 0 1 15,12 Z"
+        android:strokeColor="@color/float_button_text"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.8" />
+
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M7,8 L11,12 M11,12 V9 M11,12 H8"
+        android:strokeColor="@color/float_button_text"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.8" />
+</vector>

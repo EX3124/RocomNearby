@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Contents of MapCardView. The card itself (background, padding, id
+    `map_card`) lives in main.xml, inside `content_container`.
+-->
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <com.rocom.nearby.map.MapView
+        android:id="@+id/map_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <LinearLayout
+        android:id="@+id/map_controls"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingTop="4dp">
+
+        <TextView
+            android:id="@+id/paint_chip"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:background="@drawable/bg_map_chip_off"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:minWidth="0dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:text="@string/map_paint"
+            android:textColor="@color/content_background"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/paint_clear"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_map_chip_clear"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:minWidth="0dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:text="@string/map_paint_clear"
+            android:textColor="@color/map_button_text"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="invisible" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/zoom_out"
+            android:layout_width="36dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="@string/map_zoom_out_symbol"
+            android:textColor="@color/text"
+            android:textSize="20sp" />
+
+        <TextView
+            android:id="@+id/zoom_level"
+            android:layout_width="48dp"
+            android:layout_height="40dp"
+            android:alpha="0.65"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="@string/map_zoom_default"
+            android:textColor="@color/text"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/zoom_in"
+            android:layout_width="36dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="@string/map_zoom_in_symbol"
+            android:textColor="@color/text"
+            android:textSize="20sp" />
+
+        <Space
+            android:layout_width="4dp"
+            android:layout_height="1dp" />
+
+        <TextView
+            android:id="@+id/locate"
+            android:layout_width="36dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="@string/map_locate_symbol"
+            android:textColor="@color/text"
+            android:textSize="20sp" />
+    </LinearLayout>
+</merge>

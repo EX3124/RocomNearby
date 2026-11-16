@@ -8,6 +8,10 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
+import com.rocom.nearby.map.MapPaintStore;
+import com.rocom.nearby.map.NearbyRuntime;
+import com.rocom.nearby.net.NearbyPacketPipeline;
+
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -40,6 +44,7 @@ public class PcapCaptureService extends Service {
 
     private final Object fileLock = new Object();
     private final PcapRecordCounter recordCounter = new PcapRecordCounter();
+    private NearbyPacketPipeline packetPipeline;
 
     private volatile boolean running;
     private volatile boolean stopping;
@@ -54,12 +59,35 @@ public class PcapCaptureService extends Service {
     private long lastProgressTick;
 
     @Override
+    public void onCreate() {
+        super.onCreate();
+        MapPaintStore.initialize(this);
+        packetPipeline = new NearbyPacketPipeline(new NearbyPacketPipeline.Listener() {
+            @Override
+            public void onMapPosition(int sceneId, double x, double y) {
+                MapPaintStore.record(sceneId, x, y);
+                NearbyRuntime.publishPosition(sceneId, x, y);
+            }
+
+            @Override
+            public void onSceneChanged(int sceneId) {
+                NearbyRuntime.publishScene(sceneId);
+            }
+        });
+    }
+
+    @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent != null ? intent.getAction() : null;
         if (ACTION_START.equals(action)) {
             if (running || stopping) {
                 return START_NOT_STICKY;
             }
+            if (packetPipeline != null) {
+                packetPipeline.reset();
+            }
+            MapPaintStore.resetSession();
+            NearbyRuntime.clear();
             running = true;
             stopping = false;
             CaptureRuntime.publish(CaptureRuntime.State.STARTING, 0, 0, null,
@@ -87,6 +115,10 @@ public class PcapCaptureService extends Service {
         closeSocketQuietly(activeClient);
         closeSocketQuietly(serverSocket);
         closeFileQuietly();
+        if (packetPipeline != null) {
+            packetPipeline.reset();
+        }
+        NearbyRuntime.clear();
         super.onDestroy();
     }
 
@@ -227,6 +259,13 @@ public class PcapCaptureService extends Service {
             fileOutput.flush();
         }
         recordCounter.feed(data, 0, length);
+        if (packetPipeline != null) {
+            try {
+                packetPipeline.feed(data, 0, length);
+            } catch (Throwable e) {
+                Log.w(TAG, "Packet parsing failed", e);
+            }
+        }
         bytesReceived += length;
     }
 
@@ -285,6 +324,10 @@ public class PcapCaptureService extends Service {
             }
         }
         closeFileQuietly();
+        if (packetPipeline != null) {
+            packetPipeline.reset();
+        }
+        NearbyRuntime.clear();
 
         String finalPath = outputFile != null ? outputFile.getAbsolutePath() : null;
         if (outputFile != null && outputFile.length() == 0) {
@@ -315,6 +358,10 @@ public class PcapCaptureService extends Service {
             }
         }
         closeFileQuietly();
+        if (packetPipeline != null) {
+            packetPipeline.reset();
+        }
+        NearbyRuntime.clear();
         CaptureRuntime.publish(CaptureRuntime.State.ERROR, bytesReceived,
                 recordCounter.packets(),
                 outputFile != null ? outputFile.getAbsolutePath() : null,

@@ -20,6 +20,12 @@
     <string name="float_window_close">float_window_close</string>
 
     <string name="map">map</string>
+    <string name="map_zoom_default" translatable="false">200m</string>
+    <string name="map_zoom_out_symbol" translatable="false">−</string>
+    <string name="map_zoom_in_symbol" translatable="false">+</string>
+    <string name="map_locate_symbol" translatable="false">⊙</string>
+    <string name="map_paint">map_paint</string>
+    <string name="map_paint_clear">map_paint_clear</string>
 
     <string name="overlay_title">overlay_title</string>
     <string name="overlay_close">overlay_close</string>

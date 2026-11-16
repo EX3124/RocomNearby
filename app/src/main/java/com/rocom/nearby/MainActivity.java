@@ -10,7 +10,6 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
@@ -25,6 +24,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
+import androidx.core.widget.NestedScrollView;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -36,6 +36,11 @@ import com.lzf.easyfloat.permission.PermissionUtils;
 import com.rocom.nearby.capture.CaptureRuntime;
 import com.rocom.nearby.capture.PcapCaptureService;
 import com.rocom.nearby.capture.PcapControl;
+import com.rocom.nearby.map.MapCardView;
+import com.rocom.nearby.map.MapCatalog;
+import com.rocom.nearby.map.MapPaint;
+import com.rocom.nearby.map.MapPaintStore;
+import com.rocom.nearby.map.NearbyRuntime;
 import com.rocom.nearby.overlay.NearbyOverlay;
 
 import java.util.regex.Pattern;
@@ -48,6 +53,11 @@ import java.util.regex.Pattern;
 public class MainActivity extends AppCompatActivity {
     private static final String PREFS = "nearby";
     private static final String KEY_TARGET = "target_package";
+    private static final String STATE_MAP_VISIBLE = "map_visible";
+    private static final String STATE_MAP_FOLLOWING = "map_following";
+    private static final String STATE_MAP_CENTER_X = "map_center_x";
+    private static final String STATE_MAP_CENTER_Y = "map_center_y";
+    private static final String STATE_MAP_ZOOM = "map_zoom";
     private static final Pattern PACKAGE_PATTERN = Pattern.compile(
             "^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)+$");
 
@@ -63,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
     private View root;
     private View emptyCard;
     private View actionRow;
-    private ViewGroup contentContainer;
+    private NestedScrollView scrollView;
     private View targetRow;
     private TextView targetPrefix;
     private TextView cardTitle;
@@ -75,12 +85,15 @@ public class MainActivity extends AppCompatActivity {
     private TextInputEditText targetInput;
     private Button actionButton;
     private Button stopButton;
+    private Button mapButton;
+    private MapCardView mapCard;
 
     private SharedPreferences preferences;
     private String defaultTarget;
     private String lastValidTarget;
     private Phase phase = Phase.IDLE;
     private CaptureRuntime.Snapshot snapshot = CaptureRuntime.current();
+    private NearbyRuntime.Snapshot nearby = NearbyRuntime.current();
     private boolean authorized;
     private boolean controlRequested;
     private int localPort;
@@ -89,11 +102,20 @@ public class MainActivity extends AppCompatActivity {
      * the subtitle stays blank until a real id arrives.
      */
     private int sceneId;
+    /** Whether the user has switched the map section on. Default is off. */
+    private boolean mapVisible;
+    private boolean mapFollowing = true;
+    private double mapCenterX = Double.NaN;
+    private double mapCenterY = Double.NaN;
+    private int mapZoomIndex = -1;
+    private boolean mapViewportRestored;
 
     private ActivityResultLauncher<Intent> captureStartLauncher;
     private ActivityResultLauncher<Intent> captureStopLauncher;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final NearbyOverlay.Callback overlayCallback = this::refreshFloatButton;
+
+    private final NearbyRuntime.Listener nearbyListener = this::applyNearbySnapshot;
 
     private final CaptureRuntime.Listener captureListener = new CaptureRuntime.Listener() {
         @Override
@@ -119,6 +141,14 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.main);
+        MapPaintStore.initialize(this);
+        if (savedInstanceState != null) {
+            mapVisible = savedInstanceState.getBoolean(STATE_MAP_VISIBLE, false);
+            mapFollowing = savedInstanceState.getBoolean(STATE_MAP_FOLLOWING, true);
+            mapCenterX = savedInstanceState.getDouble(STATE_MAP_CENTER_X, Double.NaN);
+            mapCenterY = savedInstanceState.getDouble(STATE_MAP_CENTER_Y, Double.NaN);
+            mapZoomIndex = savedInstanceState.getInt(STATE_MAP_ZOOM, -1);
+        }
 
         preferences = getSharedPreferences(PREFS, MODE_PRIVATE);
         bindViews();
@@ -145,8 +175,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         CaptureRuntime.setListener(captureListener);
+        NearbyRuntime.setListener(nearbyListener);
         NearbyOverlay.setCallback(overlayCallback);
         applySnapshot(CaptureRuntime.current());
+        applyNearbySnapshot(NearbyRuntime.current());
         requestControlIfServerAlreadyWaiting();
     }
 
@@ -159,7 +191,28 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         mainHandler.removeCallbacks(serviceStartTimeout);
+        NearbyRuntime.clearListener(nearbyListener);
+        if (mapCard != null) {
+            mapCard.release();
+        }
         super.onDestroy();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putBoolean(STATE_MAP_VISIBLE, mapVisible);
+        boolean following = mapCard != null ? mapCard.isFollowing() : mapFollowing;
+        outState.putBoolean(STATE_MAP_FOLLOWING, following);
+        if (mapCard != null && mapCard.isBound()) {
+            outState.putDouble(STATE_MAP_CENTER_X, mapCard.getCenterX());
+            outState.putDouble(STATE_MAP_CENTER_Y, mapCard.getCenterY());
+            outState.putInt(STATE_MAP_ZOOM, mapCard.getZoomIndex());
+        } else {
+            outState.putDouble(STATE_MAP_CENTER_X, mapCenterX);
+            outState.putDouble(STATE_MAP_CENTER_Y, mapCenterY);
+            outState.putInt(STATE_MAP_ZOOM, mapZoomIndex);
+        }
+        super.onSaveInstanceState(outState);
     }
 
     @Override
@@ -178,7 +231,7 @@ public class MainActivity extends AppCompatActivity {
         root = findViewById(R.id.root);
         emptyCard = findViewById(R.id.empty_card);
         actionRow = findViewById(R.id.action_row);
-        contentContainer = findViewById(R.id.content_container);
+        scrollView = findViewById(R.id.scroll_view);
         targetRow = findViewById(R.id.target_row);
         targetPrefix = findViewById(R.id.target_prefix);
         cardTitle = findViewById(R.id.card_title);
@@ -190,6 +243,9 @@ public class MainActivity extends AppCompatActivity {
         targetInput = findViewById(R.id.target_input);
         actionButton = findViewById(R.id.action_button);
         stopButton = findViewById(R.id.stop_button);
+        mapButton = findViewById(R.id.map_button);
+        mapCard = findViewById(R.id.map_card);
+        mapCard.setOnFollowChangedListener(() -> mapFollowing = mapCard.isFollowing());
     }
 
     private void applyWindowInsets() {
@@ -232,6 +288,10 @@ public class MainActivity extends AppCompatActivity {
                 result -> {
                     authorized = false;
                     if (phase == Phase.STOPPING) {
+                        // The control activity does not always return a
+                        // result (for example when capture already stopped),
+                        // so finishing the UI must not depend on it.
+                        phase = Phase.IDLE;
                         render();
                     }
                 });
@@ -273,24 +333,13 @@ public class MainActivity extends AppCompatActivity {
 
         floatButton.setOnClickListener(view -> toggleFloatWindow());
 
+        mapButton.setOnClickListener(view -> toggleMapSection());
+
         stopButton.setOnClickListener(view -> {
             if (isCaptureActive()) {
                 stopCaptureFlow();
             }
         });
-
-        contentContainer.setOnHierarchyChangeListener(
-                new ViewGroup.OnHierarchyChangeListener() {
-                    @Override
-                    public void onChildViewAdded(View parent, View child) {
-                        updateEmptyCardVisibility();
-                    }
-
-                    @Override
-                    public void onChildViewRemoved(View parent, View child) {
-                        updateEmptyCardVisibility();
-                    }
-                });
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -320,16 +369,64 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         sceneId = normalized;
+        updateMapContent();
         updateSceneSubtitle();
+    }
+
+    /**
+     * Applies the tracker's latest scene / player position. The map is only
+     * allowed to exist while a real position is available and the capture is
+     * running; pcap bytes on their own are not a map.
+     */
+    private void applyNearbySnapshot(NearbyRuntime.Snapshot newSnapshot) {
+        nearby = newSnapshot;
+        // The subtitle follows scene data only, with or without a position, so
+        // this must run for every snapshot - not just on the first one after a
+        // configuration change.
+        sceneId = Math.max(0, newSnapshot.sceneId);
+        if (sceneId == 0) {
+            // Capture stopped / data cleared: the map section closes too. A
+            // plain scene switch keeps the user's expand/collapse choice.
+            mapVisible = false;
+        }
+        updateMapContent();
+        updateEmptyCardVisibility();
+        updateSceneSubtitle();
+        updateActionRow();
+    }
+
+    /**
+     * The map button only exists while coordinates are available. It switches
+     * the map section on/off; the map itself is hidden by default.
+     */
+    private void toggleMapSection() {
+        if (!hasLivePosition()) {
+            return;
+        }
+        mapVisible = !mapVisible;
+        updateMapContent();
+        updateSceneSubtitle();
+        updateActionRow();
+        if (mapVisible && mapCard != null && scrollView != null) {
+            scrollView.post(() -> scrollView.smoothScrollTo(0, mapCard.getTop()));
+        }
     }
 
     private void updateSceneSubtitle() {
         if (sceneSubtitle == null) {
             return;
         }
-        sceneSubtitle.setText(sceneId > 0
-                ? getString(R.string.sub_title, sceneId)
-                : "");
+        if (sceneId <= 0) {
+            sceneSubtitle.setText("");
+            return;
+        }
+        // The map's bottom-left label lives in the header instead of being
+        // repeated under the viewport. This follows scene data only; expanding
+        // or collapsing the map must not change the subtitle.
+        MapCatalog.Scene scene = MapCatalog.find(sceneId);
+        sceneSubtitle.setText(scene != null
+                ? scene.name
+                : getString(R.string.sub_title, sceneId));
     }
 
     private void toggleFloatWindow() {
@@ -395,6 +492,8 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         hideKeyboard();
+        mapVisible = false;
+        NearbyRuntime.clear();
         authorized = false;
         controlRequested = false;
         localPort = 0;
@@ -442,6 +541,8 @@ public class MainActivity extends AppCompatActivity {
         if (phase == Phase.STOPPING) {
             return;
         }
+        mapVisible = false;
+        NearbyRuntime.clear();
         phase = Phase.STOPPING;
         render();
 
@@ -454,7 +555,17 @@ public class MainActivity extends AppCompatActivity {
             authorized = false;
         }
         mainHandler.postDelayed(this::stopLocalReceiver, 700);
+        mainHandler.removeCallbacks(stopFallback);
+        mainHandler.postDelayed(stopFallback, 1600);
     }
+
+    /** Keeps the screen usable when the receiver had already exited. */
+    private final Runnable stopFallback = () -> {
+        if (phase == Phase.STOPPING) {
+            phase = Phase.IDLE;
+            render();
+        }
+    };
 
     private void stopLocalReceiver() {
         try {
@@ -569,18 +680,84 @@ public class MainActivity extends AppCompatActivity {
         actionButton.setText(button);
         actionButton.setEnabled(buttonEnabled);
         actionButton.setAlpha(buttonEnabled ? 1f : 0.65f);
+        updateMapContent();
         updateEmptyCardVisibility();
+        updateSceneSubtitle();
+        updateActionRow();
+    }
+
+    /**
+     * Binds the (always present) map card to the current scene and decides
+     * whether it is visible.
+     *
+     * <p>The card is a normal child of {@code content_container} in
+     * {@code main.xml}; nothing is added or removed at runtime. Visibility is
+     * driven purely by data: a known scene map plus a live player position,
+     * plus the user's expand/collapse choice.</p>
+     */
+    private void updateMapContent() {
+        if (mapCard == null) {
+            return;
+        }
+        int targetSceneId = nearby.hasPosition && nearby.sceneId > 0
+                ? nearby.sceneId
+                : sceneId;
+        MapCatalog.Scene targetScene = targetSceneId > 0
+                ? MapCatalog.find(targetSceneId)
+                : null;
+        boolean canShow = targetScene != null && hasLivePosition();
+        if (!canShow) {
+            // No scene map (or no position yet): nothing to draw. The card is
+            // not released, so re-entering the scene keeps the same instance.
+            mapCard.setVisibility(View.INVISIBLE);
+            updateActionRow();
+            return;
+        }
+        MapCatalog.Scene boundScene = mapCard.getScene();
+        if (boundScene == null || boundScene.sceneId != targetScene.sceneId) {
+            MapPaint paint = MapPaintStore.get(targetScene.sceneId);
+            mapCard.bind(targetScene, paint, nearby.selfX, nearby.selfY);
+            mapCard.setFollowing(mapFollowing);
+            if (!mapFollowing && !mapViewportRestored
+                    && Double.isFinite(mapCenterX) && Double.isFinite(mapCenterY)
+                    && mapZoomIndex >= 0) {
+                mapViewportRestored = true;
+                mapCard.restoreViewport(mapCenterX, mapCenterY, mapZoomIndex);
+            }
+        } else {
+            mapCard.updateSelfPosition(nearby.selfX, nearby.selfY);
+        }
+        mapCard.setVisibility(mapVisible ? View.VISIBLE : View.INVISIBLE);
+        updateActionRow();
     }
 
     private void updateEmptyCardVisibility() {
-        if (emptyCard == null || contentContainer == null) {
+        if (emptyCard == null) {
             return;
         }
-        boolean hasContent = contentContainer.getChildCount() > 0;
-        emptyCard.setVisibility(hasContent ? View.GONE : View.VISIBLE);
-        if (actionRow != null) {
-            actionRow.setVisibility(hasContent ? View.VISIBLE : View.INVISIBLE);
+        // The empty card is the pre-position state. Once the tracker has a
+        // live position, the action row takes over, whether the map is
+        // expanded or not.
+        emptyCard.setVisibility(hasLivePosition() ? View.INVISIBLE : View.VISIBLE);
+    }
+
+    private void updateActionRow() {
+        if (actionRow == null) {
+            return;
         }
+        boolean hasPosition = hasLivePosition();
+        actionRow.setVisibility(hasPosition ? View.VISIBLE : View.INVISIBLE);
+        if (stopButton != null) {
+            stopButton.setVisibility(hasPosition ? View.VISIBLE : View.INVISIBLE);
+        }
+        if (mapButton != null) {
+            mapButton.setVisibility(hasPosition ? View.VISIBLE : View.INVISIBLE);
+            mapButton.setEnabled(hasPosition);
+        }
+    }
+
+    private boolean hasLivePosition() {
+        return nearby.hasPosition && isCaptureActive();
     }
 
     private boolean isCaptureActive() {

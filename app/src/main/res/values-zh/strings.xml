@@ -18,6 +18,8 @@
     <string name="float_window_close">关闭悬浮窗</string>
 
     <string name="map">地图</string>
+    <string name="map_paint">染色</string>
+    <string name="map_paint_clear">清空</string>
 
     <string name="overlay_title">附近精灵</string>
     <string name="overlay_close">关闭悬浮窗</string>

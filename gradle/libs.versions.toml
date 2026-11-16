@@ -2,10 +2,12 @@
 agp = "9.5.1"
 material = "1.14.0"
 easyfloat = "2.0.3"
+junit = "4.13.2"
 
 [libraries]
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 easyfloat = { module = "com.github.princekin-f:EasyFloat", version.ref = "easyfloat" }
+junit = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

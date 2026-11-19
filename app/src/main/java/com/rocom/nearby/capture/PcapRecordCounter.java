@@ -1,25 +1,18 @@
 package com.rocom.nearby.capture;
 
-/**
- * Incrementally counts classic PCAP records without allocating a copy of the
- * capture. PCAPdroid's TCP exporter sends a normal pcap stream, including the
- * 24 byte global header, so this also works while the stream is still arriving.
- */
 final class PcapRecordCounter {
+
     private static final int GLOBAL_HEADER_SIZE = 24;
     private static final int RECORD_HEADER_SIZE = 16;
     private static final int MAX_RECORD_SIZE = 16 * 1024 * 1024;
-
     private final byte[] buffer = new byte[GLOBAL_HEADER_SIZE];
     private boolean globalHeaderParsed;
     private boolean littleEndian;
     private boolean unsupported;
     private int bufferSize;
     private int packets;
-
     private int recordHeaderSize;
     private long payloadRemaining;
-
     int packets() {
         return packets;
     }
@@ -28,10 +21,8 @@ final class PcapRecordCounter {
         if (unsupported || length <= 0) {
             return;
         }
-
         int position = offset;
         int end = offset + length;
-
         if (!globalHeaderParsed) {
             int needed = GLOBAL_HEADER_SIZE - bufferSize;
             int take = Math.min(needed, end - position);
@@ -47,7 +38,6 @@ final class PcapRecordCounter {
             }
             globalHeaderParsed = true;
         }
-
         while (position < end && !unsupported) {
             if (payloadRemaining > 0) {
                 int take = (int) Math.min(payloadRemaining, end - position);
@@ -58,17 +48,14 @@ final class PcapRecordCounter {
                 }
                 continue;
             }
-
             int needed = RECORD_HEADER_SIZE - recordHeaderSize;
             int take = Math.min(needed, end - position);
             System.arraycopy(data, position, buffer, recordHeaderSize, take);
             recordHeaderSize += take;
             position += take;
-
             if (recordHeaderSize < RECORD_HEADER_SIZE) {
                 continue;
             }
-
             long capturedLength = readU32(buffer, 8);
             recordHeaderSize = 0;
             if (capturedLength < 0 || capturedLength > MAX_RECORD_SIZE) {
@@ -92,8 +79,6 @@ final class PcapRecordCounter {
             littleEndian = true;
             return true;
         }
-        // pcapng has a block based format; PCAPdroid's TCP exporter uses
-        // classic pcap, so don't attempt to count bytes we don't understand.
         return false;
     }
 

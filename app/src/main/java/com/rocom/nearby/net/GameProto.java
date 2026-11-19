@@ -5,16 +5,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Minimal protobuf scanner for the map-relevant game opcodes.
- *
- * <p>The reference client does not use a schema; it scans for length-delimited
- * fields and validates candidate x/y/z messages by range. These helpers mirror
- * that approach for opcodes 307 (self move), 348 (teleport) and 338 (enter
- * scene).</p>
- */
 final class GameProto {
+
     static final class Position {
+
         final double x;
         final double y;
         final double z;
@@ -27,6 +21,7 @@ final class GameProto {
     }
 
     static final class Teleport {
+
         final int sceneId;
         final Position position;
 
@@ -37,6 +32,7 @@ final class GameProto {
     }
 
     private static final class Field {
+
         final int number;
         final int wireType;
         final long value;
@@ -51,6 +47,7 @@ final class GameProto {
     }
 
     private static final class Scan {
+
         final List<Field> fields;
         final int consumed;
 
@@ -61,6 +58,7 @@ final class GameProto {
     }
 
     private static final class FoundPosition {
+
         final Position position;
         final int pathLength;
 
@@ -68,9 +66,6 @@ final class GameProto {
             this.position = position;
             this.pathLength = pathLength;
         }
-    }
-
-    private GameProto() {
     }
 
     static Position parseSelfMove(byte[] plaintext) {
@@ -217,10 +212,6 @@ final class GameProto {
         return parseCoordinate(data, 1000, false);
     }
 
-    /**
-     * Parses 1/2/3 varint fields as x/y/z. {@code exactLength} mirrors the
-     * reference {@code va()} requirement (all bytes consumed by fields).
-     */
     private static Position parseCoordinate(byte[] data, int minAbs, boolean exactLength) {
         if (data == null || data.length < 2) {
             return null;
@@ -334,8 +325,6 @@ final class GameProto {
     }
 
     private static double signed(long value) {
-        // readVarint already accumulates the 64-bit two's-complement value, so
-        // negative coordinates are already signed in the long.
         return (double) value;
     }
 }

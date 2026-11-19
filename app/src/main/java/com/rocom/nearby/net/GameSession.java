@@ -1,27 +1,24 @@
 package com.rocom.nearby.net;
 
-import java.util.Arrays;
+import android.util.Log;
 
-/**
- * Per-TCP-flow game protocol state: AES key, scene id, player position.
- *
- * <p>Only the map-relevant opcodes are handled: 307 self move, 348 teleport,
- * 338 enter scene. Pet/box/egg inventories are intentionally out of scope for
- * this milestone.</p>
- */
+import com.rocom.nearby.entity.NearbyEntity;
+
+import java.util.Arrays;
+import java.util.List;
+
 final class GameSession {
+
     interface Listener {
         void onMapPosition(int sceneId, double x, double y);
-
-        /**
-         * Fired as soon as a 338 enter-scene frame reveals the new scene, before
-         * its first position update. The header follows the scene on its own.
-         */
         void onSceneChanged(int sceneId);
+        void onEntities(List<NearbyEntity> entities);
     }
 
+    private static final String TAG = "NearbySession";
     private final Listener listener;
     private final GameCrypto crypto = new GameCrypto();
+    private final NearbyTracker tracker = new NearbyTracker();
     private boolean keyVerified;
     private int sceneId;
     private double selfX = Double.NaN;
@@ -29,14 +26,6 @@ final class GameSession {
 
     GameSession(Listener listener) {
         this.listener = listener;
-    }
-
-    void reset() {
-        crypto.reset();
-        keyVerified = false;
-        sceneId = 0;
-        selfX = Double.NaN;
-        selfY = Double.NaN;
     }
 
     void processFrame(String direction, TgcpFramer.TgcpFrame frame) {
@@ -64,7 +53,6 @@ final class GameSession {
         boolean marker = plain.length >= 6
                 && (plain[4] & 0xFF) == 0x55
                 && (plain[5] & 0xFF) == 0xAA;
-
         if ("s2c".equals(direction)) {
             if (!keyVerified) {
                 if (!marker) {
@@ -76,19 +64,49 @@ final class GameSession {
                 return;
             }
         }
-
         int opcodeOffset = "s2c".equals(direction) ? 2 : 6;
         if (plain.length < opcodeOffset + 2) {
             return;
         }
         int opcode = ((plain[opcodeOffset] & 0xFF) << 8)
                 | (plain[opcodeOffset + 1] & 0xFF);
-
+        if (opcode == 330 || opcode == 1043 || opcode == 1044) {
+            long now = System.currentTimeMillis();
+            if (tracker.consume(opcode, plain, now)) {
+                listener.onEntities(tracker.snapshot(now));
+            }
+            return;
+        }
+        boolean battle = BattleTracker.handles(opcode);
+        boolean caught = CaughtParser.carriesCaught(opcode);
+        if (battle || caught) {
+            long now = System.currentTimeMillis();
+            boolean changed = false;
+            if (battle) {
+                changed = tracker.consumeBattle(opcode, plain, now);
+            }
+            if (caught) {
+                List<CaughtParser.Caught> dossiers = CaughtParser.parse(plain);
+                if (!dossiers.isEmpty()) {
+                    int removed = tracker.consumeCaught(dossiers, now);
+                    if (removed > 0) {
+                        Log.i(TAG, "获得帧 opcode=" + opcode + " 档案="
+                                + dossiers.size() + " 删卡=" + removed);
+                        changed = true;
+                    }
+                }
+            }
+            if (changed) {
+                listener.onEntities(tracker.snapshot(now));
+            }
+            return;
+        }
         if ("c2s".equals(direction) && opcode == 307) {
             GameProto.Position position = GameProto.parseSelfMove(plain);
             if (position != null) {
                 selfX = position.x;
                 selfY = position.y;
+                tracker.setSelfPosition(position.x, position.y);
                 notifyIfReady();
             }
             return;
@@ -99,6 +117,7 @@ final class GameSession {
                 sceneId = teleport.sceneId;
                 selfX = teleport.position.x;
                 selfY = teleport.position.y;
+                tracker.setSelfPosition(teleport.position.x, teleport.position.y);
                 notifyIfReady();
             }
             return;
@@ -107,8 +126,7 @@ final class GameSession {
             int newScene = GameProto.parseEnterScene(plain);
             if (newScene > 0 && newScene != sceneId) {
                 sceneId = newScene;
-                // The old position belongs to the previous scene; wait for a
-                // new 307/348 update before showing the map again.
+                tracker.reset();
                 selfX = Double.NaN;
                 selfY = Double.NaN;
                 listener.onSceneChanged(sceneId);

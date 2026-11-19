@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="direction">
+        <item>↑ 北</item>
+        <item>↗ 东北</item>
+        <item>→ 东</item>
+        <item>↘ 东南</item>
+        <item>↓ 南</item>
+        <item>↙ 西南</item>
+        <item>← 西</item>
+        <item>↖ 西北</item>
+    </string-array>
+
+    <string-array name="nature">
+        <item>大胆</item>
+        <item>固执</item>
+        <item>调皮</item>
+        <item>勇敢</item>
+        <item>逞强</item>
+        <item>稳重</item>
+        <item>天真</item>
+        <item>懒散</item>
+        <item>悠闲</item>
+        <item>坦率</item>
+        <item>聪明</item>
+        <item>专注</item>
+        <item>偏执</item>
+        <item>冷静</item>
+        <item>理性</item>
+        <item>警惕</item>
+        <item>温顺</item>
+        <item>害羞</item>
+        <item>慎重</item>
+        <item>焦虑</item>
+        <item>胆小</item>
+        <item>急躁</item>
+        <item>开朗</item>
+        <item>莽撞</item>
+        <item>热情</item>
+        <item>沉默</item>
+        <item>忧郁</item>
+        <item>平和</item>
+        <item>粗心</item>
+        <item>踏实</item>
+    </string-array>
+
+    <string-array name="nature_effect">
+        <item>+物攻 -物防</item>
+        <item>+物攻 -魔攻</item>
+        <item>+物攻 -魔防</item>
+        <item>+物攻 -速度</item>
+        <item>+物攻 -生命</item>
+        <item>+物防 -物攻</item>
+        <item>+物防 -魔攻</item>
+        <item>+物防 -魔防</item>
+        <item>+物防 -速度</item>
+        <item>+物防 -生命</item>
+        <item>+魔攻 -物攻</item>
+        <item>+魔攻 -物防</item>
+        <item>+魔攻 -魔防</item>
+        <item>+魔攻 -速度</item>
+        <item>+魔攻 -生命</item>
+        <item>+魔防 -物攻</item>
+        <item>+魔防 -物防</item>
+        <item>+魔防 -魔攻</item>
+        <item>+魔防 -速度</item>
+        <item>+魔防 -生命</item>
+        <item>+速度 -物攻</item>
+        <item>+速度 -物防</item>
+        <item>+速度 -魔攻</item>
+        <item>+速度 -魔防</item>
+        <item>+速度 -生命</item>
+        <item>+生命 -物攻</item>
+        <item>+生命 -物防</item>
+        <item>+生命 -魔攻</item>
+        <item>+生命 -魔防</item>
+        <item>+生命 -速度</item>
+    </string-array>
+</resources>

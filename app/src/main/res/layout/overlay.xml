@@ -1,46 +1,103 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Compact handle for the system overlay. The real nearby list/map will replace
-  the title row later; the handle exists so ALL_TIME creation can be verified
-  without covering the game with an empty panel.
--->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/float_body"
-    android:layout_width="wrap_content"
-    android:layout_height="40dp"
-    android:background="@drawable/bg_float_card"
-    android:clickable="true"
-    android:focusable="true"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:paddingStart="10dp"
-    android:paddingEnd="4dp">
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/overlay_body"
+    android:layout_width="264dp"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_overlay_card">
 
-    <ImageView
-        android:layout_width="16dp"
-        android:layout_height="16dp"
-        android:contentDescription="@null"
-        android:importantForAccessibility="no"
-        android:src="@drawable/ic_compass" />
+    <!-- 卡片内容：宽度跟着窗口走；用户把底角拖出固定尺寸之后，高度也由窗口决定，
+         列表用 ScrollView 吃掉标题条之外的剩余高度。 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="6dp"
-        android:includeFontPadding="false"
-        android:text="@string/overlay_title"
-        android:textColor="@color/text"
-        android:textSize="13sp"
-        android:textStyle="bold" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="8dp">
 
-    <ImageView
-        android:id="@+id/float_close"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:layout_marginStart="6dp"
-        android:alpha="0.45"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="@string/overlay_close"
-        android:padding="8dp"
-        android:src="@drawable/ic_close" />
-</LinearLayout>
+            <ImageView
+                android:id="@+id/overlay_opacity_icon"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="4dp"
+                android:src="@drawable/ic_compass" />
+
+            <SeekBar
+                android:id="@+id/overlay_opacity_seek"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:max="100"
+                android:progress="100" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+
+            <ImageView
+                android:id="@+id/overlay_close"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="6dp"
+                android:src="@drawable/ic_close" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/overlay_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:paddingTop="24dp"
+            android:paddingBottom="66dp"
+            android:text="@string/overlay_empty"
+            android:textColor="@color/text"
+            android:textSize="13sp" />
+
+        <ScrollView
+            android:id="@+id/overlay_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
+
+            <com.rocom.nearby.entity.NearbyListView
+                android:id="@+id/overlay_cards"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:id="@+id/nearby_rows"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </com.rocom.nearby.entity.NearbyListView>
+        </ScrollView>
+
+    </LinearLayout>
+
+    <!-- 底角缩放热区：把这两个角往外拖，整个浮窗跟着变大（上限是屏幕，下限是
+         这个布局创建后第一次布局量出来的大小，不是写死的 dp）。两个视图不画任何
+         东西——没有记号、没有底色，只是贴在角上接手势；尺寸不写进 prefs，浮窗
+         重开就回到原样。 -->
+    <com.rocom.nearby.overlay.OverlayResizeGrip
+        android:id="@+id/overlay_resize_start"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_gravity="bottom|start" />
+
+    <com.rocom.nearby.overlay.OverlayResizeGrip
+        android:id="@+id/overlay_resize_end"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_gravity="bottom|end" />
+
+</FrameLayout>

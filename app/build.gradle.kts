@@ -35,6 +35,4 @@ android {
 dependencies {
     implementation(libs.material)
     implementation(libs.easyfloat)
-
-    testImplementation(libs.junit)
 }

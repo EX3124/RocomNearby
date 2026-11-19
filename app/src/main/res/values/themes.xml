@@ -11,11 +11,6 @@
 
     <style name="Theme.Nearby" parent="Base.Theme.Nearby" />
 
-    <!--
-      The target line deliberately does not look like an input until the user
-      taps it. TextInputLayout gives us focus handling and an IME connection
-      without the usual filled/outlined box chrome.
-    -->
     <style name="Widget.Nearby.TargetInputLayout" parent="Widget.Material3.TextInputLayout.FilledBox">
         <item name="boxBackgroundMode">none</item>
         <item name="boxStrokeWidth">0dp</item>

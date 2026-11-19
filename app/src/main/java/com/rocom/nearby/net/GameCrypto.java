@@ -6,8 +6,8 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-/** AES-128-CBC helper for the game's 0x4013 frames. */
 final class GameCrypto {
+
     private byte[] key;
 
     void setKey(byte[] newKey) {

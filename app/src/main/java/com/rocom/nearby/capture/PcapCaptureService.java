@@ -8,9 +8,15 @@ import android.util.Log;
 
 import androidx.annotation.Nullable;
 
+import com.rocom.nearby.R;
 import com.rocom.nearby.map.MapPaintStore;
 import com.rocom.nearby.map.NearbyRuntime;
+import com.rocom.nearby.entity.NearbyEntity;
 import com.rocom.nearby.net.NearbyPacketPipeline;
+import com.rocom.nearby.net.SpeciesNames;
+import com.rocom.nearby.net.SpeciesSizes;
+
+import java.util.List;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -26,30 +32,24 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-/**
- * Started service which receives PCAPdroid's TCP exporter stream and writes it
- * to an app-private pcap file.
- *
- * <p>The socket is opened *before* the control request is sent to PCAPdroid so
- * the exporter can connect as soon as the user grants access.</p>
- */
 public class PcapCaptureService extends Service {
-    private static final String TAG = "NearbyCapture";
 
+    private static final String TAG = "NearbyCapture";
+    private String publishedEntityLog = "";
     public static final String ACTION_START = "com.rocom.nearby.action.START_CAPTURE";
     public static final String ACTION_STOP = "com.rocom.nearby.action.STOP_CAPTURE";
-
     private static final int MIN_PORT = 1234;
     private static final int MAX_PORT = 1240;
-
+    private static final long REMOTE_RETRY_DELAY_MS = 200;
     private final Object fileLock = new Object();
     private final PcapRecordCounter recordCounter = new PcapRecordCounter();
     private NearbyPacketPipeline packetPipeline;
-
     private volatile boolean running;
     private volatile boolean stopping;
     private volatile int listenPort;
     private volatile long bytesReceived;
+    private volatile RemotePcapClient remoteClient;
+    private volatile Thread remoteThread;
     private volatile Socket activeClient;
     private volatile ServerSocket serverSocket;
     private Thread serverThread;
@@ -62,6 +62,8 @@ public class PcapCaptureService extends Service {
     public void onCreate() {
         super.onCreate();
         MapPaintStore.initialize(this);
+        SpeciesNames.load(this);
+        SpeciesSizes.load(this);
         packetPipeline = new NearbyPacketPipeline(new NearbyPacketPipeline.Listener() {
             @Override
             public void onMapPosition(int sceneId, double x, double y) {
@@ -72,6 +74,24 @@ public class PcapCaptureService extends Service {
             @Override
             public void onSceneChanged(int sceneId) {
                 NearbyRuntime.publishScene(sceneId);
+                NearbyAlertNotification.releaseAll(PcapCaptureService.this);
+            }
+
+            @Override
+            public void onEntities(List<NearbyEntity> entities) {
+                String battle = "";
+                if (!entities.isEmpty() && entities.get(0).fighting) {
+                    NearbyEntity enemy = entities.get(0);
+                    String enemyName = enemy.name == null ? "" : enemy.name;
+                    battle = " battle=" + (enemyName.isEmpty() ? "unknown" : enemyName);
+                }
+                int nearbyCount = entities.size() - (battle.isEmpty() ? 0 : 1);
+                String summary = nearbyCount + battle;
+                if (!summary.equals(publishedEntityLog)) {
+                    publishedEntityLog = summary;
+                    Log.i(TAG, "nearby entities: " + summary);
+                }
+                NearbyRuntime.publishEntities(entities);
             }
         });
     }
@@ -80,6 +100,12 @@ public class PcapCaptureService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent != null ? intent.getAction() : null;
         if (ACTION_START.equals(action)) {
+            if (!enterForeground()) {
+                CaptureRuntime.publish(CaptureRuntime.State.ERROR, 0, 0, null,
+                        "", 0, false);
+                stopSelf();
+                return START_NOT_STICKY;
+            }
             if (running || stopping) {
                 return START_NOT_STICKY;
             }
@@ -88,11 +114,19 @@ public class PcapCaptureService extends Service {
             }
             MapPaintStore.resetSession();
             NearbyRuntime.clear();
+            
+            NearbyAlertNotification.releaseAll(PcapCaptureService.this);
             running = true;
             stopping = false;
             CaptureRuntime.publish(CaptureRuntime.State.STARTING, 0, 0, null,
                     "", 0, false);
-            startServer();
+            CaptureTarget target = resolveCaptureTarget();
+            if (target != null && target.isServer()) {
+                Log.i(TAG, "Remote PCAPdroid server " + target.describe());
+                startRemoteClient(target);
+            } else {
+                startServer();
+            }
         } else if (ACTION_STOP.equals(action)) {
             if (running) {
                 stopCapture();
@@ -114,12 +148,34 @@ public class PcapCaptureService extends Service {
         running = false;
         closeSocketQuietly(activeClient);
         closeSocketQuietly(serverSocket);
+        closeRemoteClient();
         closeFileQuietly();
         if (packetPipeline != null) {
             packetPipeline.reset();
         }
         NearbyRuntime.clear();
+        NearbyAlertNotification.releaseAll(this);
+        leaveForeground();
         super.onDestroy();
+    }
+
+    private boolean enterForeground() {
+        try {
+            startForeground(CaptureNotification.NOTIFICATION_ID,
+                    CaptureNotification.build(this));
+            return true;
+        } catch (Throwable e) {
+            Log.e(TAG, "Cannot enter foreground", e);
+            return false;
+        }
+    }
+
+    private void leaveForeground() {
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE);
+        } catch (Throwable e) {
+            Log.w(TAG, "Cannot leave foreground", e);
+        }
     }
 
     private void startServer() {
@@ -134,7 +190,6 @@ public class PcapCaptureService extends Service {
             CaptureRuntime.publish(CaptureRuntime.State.LISTENING, 0, 0, null,
                     "", listenPort, false);
             CaptureRuntime.notifyServerReady(listenPort);
-
             while (running) {
                 try {
                     Socket client = socket.accept();
@@ -166,6 +221,116 @@ public class PcapCaptureService extends Service {
     }
 
     @Nullable
+    private CaptureTarget resolveCaptureTarget() {
+        String raw = getSharedPreferences(CaptureTarget.PREFS_NAME, MODE_PRIVATE)
+                .getString(CaptureTarget.KEY_TARGET, null);
+        CaptureTarget target = CaptureTarget.parse(raw);
+        if (target != null) {
+            return target;
+        }
+        return CaptureTarget.parse(getString(R.string.target_default));
+    }
+
+    private void startRemoteClient(CaptureTarget target) {
+        remoteThread = new Thread(() -> runRemoteClient(target), "nearby-pcap-http-client");
+        remoteThread.start();
+    }
+
+    private void runRemoteClient(CaptureTarget target) {
+        int failures = 0;
+        while (ownsRemoteSession()) {
+            IOException failure = null;
+            RemotePcapClient client = new RemotePcapClient();
+            remoteClient = client;
+            try {
+                InputStream body = client.open(target);
+                if (!ownsRemoteSession()) {
+                    return;
+                }
+                if (!ensureOutputFile()) {
+                    finishWithError();
+                    return;
+                }
+                CaptureRuntime.publish(CaptureRuntime.State.CAPTURING, bytesReceived,
+                        recordCounter.packets(),
+                        outputFile != null ? outputFile.getAbsolutePath() : null,
+                        "", listenPort, true);
+                if (consumePcapStream(body) <= 0) {
+                    throw new IOException("empty pcap stream");
+                }
+                Log.i(TAG, "Remote pcap stream ended");
+            } catch (IOException e) {
+                failure = e;
+            } catch (Throwable e) {
+                failure = new IOException(String.valueOf(e.getMessage()));
+            } finally {
+                client.close();
+                if (remoteClient == client) {
+                    remoteClient = null;
+                }
+            }
+            if (!ownsRemoteSession()) {
+                return;
+            }
+            if (failure == null) {
+                failures = 0;
+            } else {
+                failures++;
+                Log.w(TAG, "Remote pcap stream failed (" + failures + ")", failure);
+            }
+            if (!sleepQuietly(REMOTE_RETRY_DELAY_MS)) {
+                return;
+            }
+        }
+    }
+
+    private boolean ownsRemoteSession() {
+        return running && remoteThread == Thread.currentThread();
+    }
+
+    private long consumePcapStream(InputStream input) throws IOException {
+        long before = bytesReceived;
+        byte[] first = new byte[24];
+        int firstLength = readAtMost(input, first, 0, first.length);
+        if (firstLength > 0) {
+            boolean header = firstLength == first.length && looksLikePcapHeader(first);
+            if (!header) {
+                writeBytes(first, firstLength);
+            } else if (!globalHeaderWritten) {
+                writeBytes(first, firstLength);
+                globalHeaderWritten = true;
+            }
+        }
+        byte[] buffer = new byte[64 * 1024];
+        int length;
+        while (running && (length = input.read(buffer)) != -1) {
+            if (length == 0) {
+                continue;
+            }
+            writeBytes(buffer, length);
+            publishProgress();
+        }
+        return bytesReceived - before;
+    }
+
+    private void closeRemoteClient() {
+        RemotePcapClient client = remoteClient;
+        remoteClient = null;
+        if (client != null) {
+            client.close();
+        }
+    }
+
+    private static boolean sleepQuietly(long millis) {
+        try {
+            Thread.sleep(millis);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
     private ServerSocket bindServerSocket() {
         for (int port = MIN_PORT; port <= MAX_PORT; port++) {
             ServerSocket candidate = null;
@@ -187,50 +352,17 @@ public class PcapCaptureService extends Service {
             client.setTcpNoDelay(true);
             client.setReceiveBufferSize(256 * 1024);
             InputStream input = new BufferedInputStream(client.getInputStream(), 64 * 1024);
-
             if (!ensureOutputFile()) {
                 finishWithError();
                 return;
             }
-
             CaptureRuntime.publish(CaptureRuntime.State.CAPTURING, bytesReceived,
                     recordCounter.packets(),
                     outputFile != null ? outputFile.getAbsolutePath() : null,
                     "", listenPort, true);
-
-            /*
-             * PCAPdroid writes a complete classic pcap stream per TCP
-             * connection. Keep the first global header, and drop the header on
-             * reconnect so the resulting file remains one valid pcap.
-             */
-            byte[] first = new byte[24];
-            int firstLength = readAtMost(input, first, 0, first.length);
-            if (firstLength > 0) {
-                boolean header = firstLength == first.length && looksLikePcapHeader(first);
-                if (header) {
-                    if (!globalHeaderWritten) {
-                        writeBytes(first, firstLength);
-                        globalHeaderWritten = true;
-                    }
-                } else {
-                    writeBytes(first, firstLength);
-                }
-            }
-
-            byte[] buffer = new byte[64 * 1024];
-            int length;
-            while (running && (length = input.read(buffer)) != -1) {
-                if (length == 0) {
-                    continue;
-                }
-                writeBytes(buffer, length);
-                publishProgress();
-            }
-
+            consumePcapStream(input);
             if (running) {
                 if (bytesReceived == 0) {
-                    // PCAPdroid accepted the socket but closed it before
-                    // sending anything: its process is gone.
                     stopCapture();
                     return;
                 }
@@ -316,6 +448,7 @@ public class PcapCaptureService extends Service {
         running = false;
         closeSocketQuietly(activeClient);
         closeSocketQuietly(serverSocket);
+        closeRemoteClient();
         if (serverThread != null && serverThread != Thread.currentThread()) {
             try {
                 serverThread.join(1500);
@@ -328,17 +461,14 @@ public class PcapCaptureService extends Service {
             packetPipeline.reset();
         }
         NearbyRuntime.clear();
-
         String finalPath = outputFile != null ? outputFile.getAbsolutePath() : null;
         if (outputFile != null && outputFile.length() == 0) {
-            // Nothing was received; don't leave an empty pcap behind.
             if (outputFile.delete()) {
                 finalPath = null;
             }
         }
         CaptureRuntime.publish(CaptureRuntime.State.IDLE, bytesReceived,
                 recordCounter.packets(), finalPath, "", listenPort, false);
-
         stopSelf();
     }
 
@@ -350,6 +480,7 @@ public class PcapCaptureService extends Service {
         running = false;
         closeSocketQuietly(activeClient);
         closeSocketQuietly(serverSocket);
+        closeRemoteClient();
         if (serverThread != null && serverThread != Thread.currentThread()) {
             try {
                 serverThread.join(1000);
@@ -416,5 +547,4 @@ public class PcapCaptureService extends Service {
         return magic == 0xa1b2c3d4 || magic == 0xa1b23c4d
                 || magic == 0xd4c3b2a1 || magic == 0x4d3cb2a1;
     }
-
 }

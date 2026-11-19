@@ -4,18 +4,10 @@ import java.io.ByteArrayOutputStream;
 import java.util.Map;
 import java.util.TreeMap;
 
-/**
- * Per-direction TCP sequence reassembly, matching the reference implementation:
- * a next-sequence cursor plus a small pending map for out-of-order segments.
- */
 final class TcpReassembler {
+
     private long nextSequence = -1;
     private final TreeMap<Long, byte[]> pending = new TreeMap<>();
-
-    void reset() {
-        nextSequence = -1;
-        pending.clear();
-    }
 
     byte[] feed(long sequence, byte[] payload) {
         if (payload == null || payload.length == 0) {
@@ -45,7 +37,6 @@ final class TcpReassembler {
             }
             return new byte[0];
         }
-
         ByteArrayOutputStream out = new ByteArrayOutputStream(payload.length);
         out.write(payload, 0, payload.length);
         nextSequence += payload.length;

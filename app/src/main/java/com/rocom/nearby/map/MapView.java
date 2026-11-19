@@ -1,6 +1,7 @@
 package com.rocom.nearby.map;
 
 import android.content.Context;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.BitmapRegionDecoder;
@@ -18,56 +19,51 @@ import android.view.ViewOutlineProvider;
 import androidx.annotation.Nullable;
 
 import com.rocom.nearby.R;
+import com.rocom.nearby.entity.NearbyEntity;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Pannable / zoomable raster map for a {@link MapCatalog.Scene}.
- *
- * <p>The base image is 4096x4096, so it is never decoded as a whole while the
- * region decoder is available: zoomed-in levels decode only the visible source
- * rectangle (plus a margin), while zoomed-out levels use a 1024px overview.
- * If region decoding is not supported for the bundled WebP, the view falls
- * back to a single RGB_565 bitmap (or a half-size one on low-memory devices).
- * That keeps the default 200m view as sharp as the original map.</p>
- */
 public class MapView extends View {
+
     public interface OnViewportChangedListener {
         void onViewportChanged(String zoomLabel, boolean canZoomIn, boolean canZoomOut);
     }
 
-    /** Follow mode: the viewport tracks the player until the user pans away. */
     public interface OnFollowChangedListener {
         void onFollowChanged(boolean following);
     }
 
-    /** Zoom span in metres, matching the reference map control. */
     private static final double[] ZOOM_SPANS = {100, 200, 400, 800, 1500, 3000};
-    private static final int DEFAULT_ZOOM_INDEX = 1;
-
-    /** Above this span the 1024px overview is sharp enough and much cheaper. */
+    private static final double MIN_SPAN_M = ZOOM_SPANS[0];
+    private static final double MAX_SPAN_M = ZOOM_SPANS[ZOOM_SPANS.length - 1];
+    private static final double DEFAULT_SPAN_M = 200;
+    private static final double SPAN_EPSILON_M = 1e-6;
     private static final double MAX_REGION_SPAN_M = 800.0;
     private static final long MAX_REGION_PIXELS = 4_000_000L;
-
     private static final int PAINT_FILL = Color.argb(82, 168, 85, 247);
     private static final int PAINT_EDGE = Color.argb(235, 233, 213, 255);
     private static final int TOO_MANY_CELLS = 6000;
-
+    private static final float ENTITY_DOT_RADIUS_DP = 4f;
+    private static final float PLAYER_DOT_RADIUS_DP = 5f;
+    private static final float ENTITY_GLOW_PAD_DP = 1.5f;
+    private static final float PLAYER_GLOW_PAD_DP = 2f;
+    private static final String POLLUTION_BADGE_KEY = "pollution";
     private final Paint bitmapPaint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint edgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint markerFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint markerRingPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint markerGlowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint entityFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF scratchRect = new RectF();
     private final Rect regionSrc = new Rect();
-
     private final ExecutorService decoderExecutor = Executors.newSingleThreadExecutor();
     private final int touchSlop;
-
     @Nullable
     private MapCatalog.Scene scene;
     @Nullable
@@ -76,7 +72,6 @@ public class MapView extends View {
     private OnViewportChangedListener viewportListener;
     @Nullable
     private OnFollowChangedListener followListener;
-
     @Nullable
     private Bitmap overview;
     @Nullable
@@ -87,15 +82,19 @@ public class MapView extends View {
     private Bitmap paintOverlay;
     @Nullable
     private BitmapRegionDecoder regionDecoder;
-
-    private int zoomIndex = DEFAULT_ZOOM_INDEX;
+    private double spanMetres = DEFAULT_SPAN_M;
     private double centerX;
     private double centerY;
     private double selfX = Double.NaN;
     private double selfY = Double.NaN;
-
+    private List<NearbyEntity> entities = Collections.emptyList();
+    private int entityNormalColor;
+    private int entitySpecialColor;
+    private int entityPollutionColor;
     private boolean paintVisible;
     private boolean following = true;
+    @Nullable
+    private String trackedKey;
     private int paintOverlayVersion = -1;
     private boolean initialized;
     private boolean regionRequestPending;
@@ -103,16 +102,26 @@ public class MapView extends View {
     private boolean released;
     private int decodeGeneration;
     private int requestedRegionKey;
-
     private float scale = 1f;
     private float offsetX;
     private float offsetY;
-
     private float lastTouchX;
     private float lastTouchY;
     private float downTouchX;
     private float downTouchY;
     private boolean dragging;
+    private boolean multiTouch;
+    private boolean pinching;
+    private int pinchPrimaryId = MotionEvent.INVALID_POINTER_ID;
+    private int pinchSecondaryId = MotionEvent.INVALID_POINTER_ID;
+    private double pinchStartDistance;
+    private double pinchStartSpan;
+    private double pinchAnchorX;
+    private double pinchAnchorY;
+    @Nullable
+    private String lastViewportLabel;
+    private boolean lastCanZoomIn;
+    private boolean lastCanZoomOut;
 
     public MapView(Context context) {
         this(context, null);
@@ -134,13 +143,13 @@ public class MapView extends View {
         edgePaint.setColor(PAINT_EDGE);
         edgePaint.setStrokeWidth(dp(1.6f));
         markerFillPaint.setStyle(Paint.Style.FILL);
-        markerFillPaint.setColor(Color.WHITE);
-        markerRingPaint.setStyle(Paint.Style.STROKE);
-        markerRingPaint.setStrokeWidth(dp(2.5f));
-        markerRingPaint.setColor(Color.argb(235, 12, 20, 33));
-        markerGlowPaint.setStyle(Paint.Style.FILL);
-        markerGlowPaint.setColor(Color.argb(64, 255, 255, 255));
-
+        markerFillPaint.setColor(context.getColor(R.color.map_player));
+        entityFillPaint.setStyle(Paint.Style.FILL);
+        entityNormalColor = context.getColor(R.color.map_normal);
+        entitySpecialColor = context.getColor(R.color.map_special);
+        entityPollutionColor = context.getColor(R.color.map_pollution);
+        glowPaint.setStyle(Paint.Style.FILL);
+        glowPaint.setColor(context.getColor(R.color.map_glow));
         setOutlineProvider(new ViewOutlineProvider() {
             @Override
             public void getOutline(View view, android.graphics.Outline outline) {
@@ -154,15 +163,38 @@ public class MapView extends View {
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int width = MeasureSpec.getSize(widthMeasureSpec);
         int widthMode = MeasureSpec.getMode(widthMeasureSpec);
-        int height;
-        if (widthMode == MeasureSpec.UNSPECIFIED) {
-            height = MeasureSpec.getSize(heightMeasureSpec);
-        } else {
-            // The reference map viewport is a 3:4 portrait rectangle. Landscape
-            // layout work is deliberately deferred; this keeps the simple
-            // portrait ratio everywhere for now.
-            height = Math.round(width * 4f / 3f);
+        int height = MeasureSpec.getSize(heightMeasureSpec);
+        int heightMode = MeasureSpec.getMode(heightMeasureSpec);
+        boolean landscape = getResources().getConfiguration().orientation
+                == Configuration.ORIENTATION_LANDSCAPE;
+        if (landscape) {
+            if (widthMode == MeasureSpec.EXACTLY && heightMode == MeasureSpec.EXACTLY) {
+                setMeasuredDimension(width, height);
+                return;
+            }
+            if (heightMode == MeasureSpec.EXACTLY && height > 0) {
+                width = Math.round(height * 4f / 3f);
+                if (widthMode == MeasureSpec.AT_MOST && width > MeasureSpec.getSize(widthMeasureSpec)) {
+                    width = MeasureSpec.getSize(widthMeasureSpec);
+                    height = Math.round(width * 3f / 4f);
+                }
+                setMeasuredDimension(width, height);
+                return;
+            }
+            if (widthMode == MeasureSpec.UNSPECIFIED || heightMode == MeasureSpec.UNSPECIFIED) {
+                setMeasuredDimension(0, 0);
+                return;
+            }
         }
+        if (widthMode == MeasureSpec.UNSPECIFIED) {
+            setMeasuredDimension(width, height);
+            return;
+        }
+        if (widthMode == MeasureSpec.EXACTLY && heightMode == MeasureSpec.EXACTLY) {
+            setMeasuredDimension(width, height);
+            return;
+        }
+        height = Math.round(width * 4f / 3f);
         setMeasuredDimension(width, height);
     }
 
@@ -176,6 +208,8 @@ public class MapView extends View {
         regionRequestPending = false;
         fullBitmapRequested = false;
         paintOverlayVersion = -1;
+        entities = Collections.emptyList();
+        trackedKey = null;
         if (newScene == null) {
             invalidate();
             return;
@@ -184,7 +218,7 @@ public class MapView extends View {
         centerY = newScene.defaultFocusY;
         selfX = newScene.defaultFocusX;
         selfY = newScene.defaultFocusY;
-        zoomIndex = DEFAULT_ZOOM_INDEX;
+        spanMetres = DEFAULT_SPAN_M;
         requestLayout();
         invalidate();
         ensureInitialized();
@@ -206,12 +240,9 @@ public class MapView extends View {
         invalidate();
     }
 
-    public boolean isPaintVisible() {
-        return paintVisible;
-    }
-
     public void setOnViewportChangedListener(@Nullable OnViewportChangedListener listener) {
         viewportListener = listener;
+        lastViewportLabel = null;
         notifyViewport();
     }
 
@@ -224,31 +255,74 @@ public class MapView extends View {
         return following;
     }
 
-    /**
-     * Turns player-following on/off. Enabling it immediately pans back to the
-     * player so the marker is visible again; the zoom level is kept.
-     */
     public void setFollowing(boolean follow) {
         if (following == follow) {
             return;
         }
         following = follow;
         if (following) {
+            trackedKey = null;
             panToSelf();
             invalidate();
         }
         notifyFollow();
     }
 
-    /**
-     * Locate button: toggles player-following. Turning it on pans back to the
-     * player without changing the current zoom level.
-     */
     public void toggleFollowing() {
         setFollowing(!following);
     }
 
-    /** Sets the player marker, in world centimetres. */
+    public void trackEntity(@Nullable NearbyEntity entity) {
+        if (scene == null || entity == null
+                || !Double.isFinite(entity.worldX)
+                || !Double.isFinite(entity.worldY)) {
+            return;
+        }
+        trackedKey = entity.identityKey();
+        boolean wasFollowing = following;
+        following = false;
+        centerX = entity.worldX;
+        centerY = entity.worldY;
+        invalidate();
+        if (wasFollowing) {
+            notifyFollow();
+        }
+    }
+    
+    public void enterFreeMode() {
+        trackedKey = null;
+        setFollowing(false);
+    }
+
+    public void setEntities(@Nullable List<NearbyEntity> newEntities) {
+        if (newEntities == null || newEntities.isEmpty()) {
+            entities = Collections.emptyList();
+        } else {
+            entities = Collections.unmodifiableList(new ArrayList<>(newEntities));
+        }
+        followTracked();
+        invalidate();
+    }
+
+    private void followTracked() {
+        if (trackedKey == null) {
+            return;
+        }
+        for (int i = 0; i < entities.size(); i++) {
+            NearbyEntity candidate = entities.get(i);
+            if (candidate == null || !trackedKey.equals(candidate.identityKey())) {
+                continue;
+            }
+            if (!Double.isFinite(candidate.worldX)
+                    || !Double.isFinite(candidate.worldY)) {
+                return;
+            }
+            centerX = candidate.worldX;
+            centerY = candidate.worldY;
+            return;
+        }
+    }
+
     public void setSelf(double worldX, double worldY) {
         selfX = worldX;
         selfY = worldY;
@@ -259,17 +333,8 @@ public class MapView extends View {
         invalidate();
     }
 
-    public double getSelfX() {
-        return selfX;
-    }
-
-    public double getSelfY() {
-        return selfY;
-    }
-
     public double getSpanMetres() {
-        double span = ZOOM_SPANS[zoomIndex];
-        return Double.isFinite(span) ? span : 200;
+        return Double.isFinite(spanMetres) ? spanMetres : DEFAULT_SPAN_M;
     }
 
     public double getCenterX() {
@@ -279,65 +344,73 @@ public class MapView extends View {
     public double getCenterY() {
         return centerY;
     }
-
-    public int getZoomIndex() {
-        return zoomIndex;
-    }
-
-    /**
-     * Restores a previously saved viewport without touching follow mode, so a
-     * configuration change keeps both the pan and the locate-button state.
-     */
-    public void restoreViewport(double worldCenterX, double worldCenterY, int index) {
+    
+    public void restoreViewport(double worldCenterX, double worldCenterY, double span) {
         if (!Double.isFinite(worldCenterX) || !Double.isFinite(worldCenterY)) {
             return;
         }
         centerX = worldCenterX;
         centerY = worldCenterY;
-        zoomIndex = Math.max(0, Math.min(ZOOM_SPANS.length - 1, index));
+        spanMetres = clampSpan(span);
         invalidate();
         notifyViewport();
     }
 
     public String getZoomLabel() {
-        return formatSpan(getSpanMetres());
+        return MapZoomMath.formatSpan(getSpanMetres());
     }
 
     public boolean canZoomIn() {
-        return zoomIndex > 0;
+        return getSpanMetres() > MIN_SPAN_M + SPAN_EPSILON_M;
     }
 
     public boolean canZoomOut() {
-        return zoomIndex < ZOOM_SPANS.length - 1;
+        return getSpanMetres() < MAX_SPAN_M - SPAN_EPSILON_M;
     }
 
     public void zoomIn() {
-        setZoomIndex(zoomIndex - 1);
+        setSpanMetres(MapZoomMath.zoomInSpan(ZOOM_SPANS, getSpanMetres()));
     }
 
     public void zoomOut() {
-        setZoomIndex(zoomIndex + 1);
+        setSpanMetres(MapZoomMath.zoomOutSpan(ZOOM_SPANS, getSpanMetres()));
     }
 
-    private void setZoomIndex(int index) {
-        int clamped = Math.max(0, Math.min(ZOOM_SPANS.length - 1, index));
-        if (clamped == zoomIndex) {
+    private void setSpanMetres(double span) {
+        double clamped = clampSpan(span);
+        if (Math.abs(clamped - spanMetres) < SPAN_EPSILON_M) {
             return;
         }
-        zoomIndex = clamped;
+        spanMetres = clamped;
+        reanchorAfterZoom();
         invalidate();
         notifyViewport();
     }
 
-    /** Resets zoom and pan so the self marker is in the middle again. */
+    private static double clampSpan(double span) {
+        if (!Double.isFinite(span)) {
+            return DEFAULT_SPAN_M;
+        }
+        return Math.max(MIN_SPAN_M, Math.min(MAX_SPAN_M, span));
+    }
+
+    private void reanchorAfterZoom() {
+        if (following) {
+            panToSelf();
+        } else if (trackedKey != null) {
+            followTracked();
+        }
+    }
+
     public void recenter() {
         if (scene == null) {
             return;
         }
         boolean followChanged = !following;
         following = true;
+        trackedKey = null;
         panToSelf();
-        zoomIndex = DEFAULT_ZOOM_INDEX;
+        spanMetres = DEFAULT_SPAN_M;
         invalidate();
         notifyViewport();
         if (followChanged) {
@@ -419,8 +492,6 @@ public class MapView extends View {
             overview = overviewResult;
             regionDecoder = decoderResult;
             if (decoderResult == null) {
-                // Without a region decoder the only way to keep zoomed-in
-                // levels sharp is one full bitmap; decode it lazily below.
                 requestFullBitmap();
             }
             invalidate();
@@ -484,7 +555,6 @@ public class MapView extends View {
             return;
         }
         if (getSpanMetres() > MAX_REGION_SPAN_M) {
-            // Overview is good enough here.
             return;
         }
         if (regionDecoder == null) {
@@ -529,8 +599,6 @@ public class MapView extends View {
             final Bitmap result = decoded;
             post(() -> {
                 if (generation != decodeGeneration) {
-                    // A newer viewport request superseded this one; keep its
-                    // pending flag intact.
                     recycleQuietly(result);
                     return;
                 }
@@ -540,8 +608,6 @@ public class MapView extends View {
                     return;
                 }
                 if (result == null) {
-                    // Region decoding failed (some devices do not support
-                    // WebP subsets); fall back to one full image.
                     regionDecoder = null;
                     requestFullBitmap();
                     invalidate();
@@ -601,7 +667,6 @@ public class MapView extends View {
         double halfWidth = sourceWidth / 2.0;
         double sourceHeight = getHeight() * sourceWidth / getWidth();
         double halfHeight = sourceHeight / 2.0;
-
         if (halfWidth * 2 >= scene.imageWidth) {
             centreSourceX = scene.imageWidth / 2.0;
         } else {
@@ -615,7 +680,6 @@ public class MapView extends View {
         }
         centerX = scene.worldX(centreSourceX);
         centerY = scene.worldY(centreSourceY);
-
         scale = (float) (getWidth() / sourceWidth);
         offsetX = (float) (getWidth() / 2.0 - centreSourceX * scale);
         offsetY = (float) (getHeight() / 2.0 - centreSourceY * scale);
@@ -650,6 +714,7 @@ public class MapView extends View {
         if (paintVisible && paint != null) {
             drawPaint(canvas, scene);
         }
+        drawEntityMarkers(canvas, scene);
         drawSelfMarker(canvas, scene);
         if (scene != null) {
             requestRegionRendering();
@@ -759,19 +824,55 @@ public class MapView extends View {
         paintOverlayVersion = paint.getVersion();
     }
 
+    private void drawEntityMarkers(Canvas canvas, MapCatalog.Scene mapScene) {
+        if (entities.isEmpty()) {
+            return;
+        }
+        float radius = dp(ENTITY_DOT_RADIUS_DP);
+        float glowRadius = radius + dp(ENTITY_GLOW_PAD_DP);
+        float margin = glowRadius;
+        int width = getWidth();
+        int height = getHeight();
+        for (int i = 0; i < entities.size(); i++) {
+            NearbyEntity entity = entities.get(i);
+            if (entity == null
+                    || !Double.isFinite(entity.worldX)
+                    || !Double.isFinite(entity.worldY)) {
+                continue;
+            }
+            float x = offsetX + (float) (mapScene.imageX(entity.worldX) * scale);
+            float y = offsetY + (float) (mapScene.imageY(entity.worldY) * scale);
+            if (x < -margin || y < -margin || x > width + margin || y > height + margin) {
+                continue;
+            }
+            entityFillPaint.setColor(entityColor(entity));
+            canvas.drawCircle(x, y, glowRadius, glowPaint);
+            canvas.drawCircle(x, y, radius, entityFillPaint);
+        }
+    }
+
+    private int entityColor(NearbyEntity entity) {
+        if (entity.badges.contains(POLLUTION_BADGE_KEY)) {
+            return entityPollutionColor;
+        }
+        if (!entity.badges.isEmpty()) {
+            return entitySpecialColor;
+        }
+        return entityNormalColor;
+    }
+
     private void drawSelfMarker(Canvas canvas, MapCatalog.Scene mapScene) {
         if (!Double.isFinite(selfX) || !Double.isFinite(selfY)) {
             return;
         }
         float x = offsetX + (float) (mapScene.imageX(selfX) * scale);
         float y = offsetY + (float) (mapScene.imageY(selfY) * scale);
-        float radius = dp(9);
+        float radius = dp(PLAYER_DOT_RADIUS_DP);
         if (x < -radius || y < -radius || x > getWidth() + radius || y > getHeight() + radius) {
             return;
         }
-        canvas.drawCircle(x, y, radius + dp(3), markerGlowPaint);
+        canvas.drawCircle(x, y, radius + dp(PLAYER_GLOW_PAD_DP), glowPaint);
         canvas.drawCircle(x, y, radius, markerFillPaint);
-        canvas.drawCircle(x, y, radius - dp(1.2f), markerRingPaint);
     }
 
     @Override
@@ -786,11 +887,25 @@ public class MapView extends View {
                 downTouchX = lastTouchX;
                 downTouchY = lastTouchY;
                 dragging = false;
+                multiTouch = false;
+                pinching = false;
+                pinchPrimaryId = MotionEvent.INVALID_POINTER_ID;
+                pinchSecondaryId = MotionEvent.INVALID_POINTER_ID;
                 if (getParent() != null) {
                     getParent().requestDisallowInterceptTouchEvent(true);
                 }
                 return true;
+            case MotionEvent.ACTION_POINTER_DOWN:
+                multiTouch = true;
+                if (!pinching) {
+                    beginPinch(event);
+                }
+                return true;
             case MotionEvent.ACTION_MOVE:
+                if (pinching) {
+                    movePinch(event);
+                    return true;
+                }
                 float x = event.getX();
                 float y = event.getY();
                 if (!dragging) {
@@ -798,8 +913,7 @@ public class MapView extends View {
                     float totalDy = y - downTouchY;
                     if (Math.hypot(totalDx, totalDy) > touchSlop) {
                         dragging = true;
-                        // Panning means the user wants to look elsewhere.
-                        setFollowing(false);
+                        enterFreeMode();
                     }
                 }
                 if (dragging) {
@@ -815,8 +929,13 @@ public class MapView extends View {
                 lastTouchX = x;
                 lastTouchY = y;
                 return true;
+            case MotionEvent.ACTION_POINTER_UP:
+                if (pinching) {
+                    endPinch(event);
+                }
+                return true;
             case MotionEvent.ACTION_UP:
-                if (!dragging) {
+                if (!dragging && !multiTouch) {
                     performClick();
                 }
                 finishGesture();
@@ -829,8 +948,115 @@ public class MapView extends View {
         }
     }
 
+    private void beginPinch(MotionEvent event) {
+        if (event.getPointerCount() < 2) {
+            return;
+        }
+        double startDistance = pointerDistance(event, 0, 1);
+        if (!(startDistance > 0)) {
+            return;
+        }
+        pinchPrimaryId = event.getPointerId(0);
+        pinchSecondaryId = event.getPointerId(1);
+        pinchStartDistance = startDistance;
+        pinchStartSpan = getSpanMetres();
+        dragging = false;
+        pinching = true;
+        enterFreeMode();
+        anchorPinch(focusX(event, 0, 1), focusY(event, 0, 1));
+        if (getParent() != null) {
+            getParent().requestDisallowInterceptTouchEvent(true);
+        }
+    }
+
+    private void anchorPinch(float screenX, float screenY) {
+        if (scene == null || getWidth() <= 0 || getHeight() <= 0) {
+            pinchAnchorX = centerX;
+            pinchAnchorY = centerY;
+            return;
+        }
+        double scale = sourceScale(getSpanMetres());
+        pinchAnchorX = scene.worldX(
+                MapZoomMath.sourceAtScreen(scene.imageX(centerX), screenX, getWidth(), scale));
+        pinchAnchorY = scene.worldY(
+                MapZoomMath.sourceAtScreen(scene.imageY(centerY), screenY, getHeight(), scale));
+    }
+
+    private void movePinch(MotionEvent event) {
+        int firstIndex = event.findPointerIndex(pinchPrimaryId);
+        int secondIndex = event.findPointerIndex(pinchSecondaryId);
+        if (firstIndex < 0 || secondIndex < 0) {
+            pinching = false;
+            return;
+        }
+        double target = MapZoomMath.spanForPinch(pinchStartSpan, pinchStartDistance,
+                pointerDistance(event, firstIndex, secondIndex), MIN_SPAN_M, MAX_SPAN_M);
+        boolean zoomed = Math.abs(target - spanMetres) > SPAN_EPSILON_M;
+        if (zoomed) {
+            spanMetres = target;
+        }
+        applyPinchFocus(focusX(event, firstIndex, secondIndex),
+                focusY(event, firstIndex, secondIndex));
+        if (zoomed) {
+            notifyViewport();
+        }
+        invalidate();
+    }
+
+    private void applyPinchFocus(float screenX, float screenY) {
+        if (scene == null || getWidth() <= 0 || getHeight() <= 0) {
+            return;
+        }
+        double scale = sourceScale(getSpanMetres());
+        centerX = scene.worldX(MapZoomMath.centreForSourceAtScreen(
+                scene.imageX(pinchAnchorX), screenX, getWidth(), scale));
+        centerY = scene.worldY(MapZoomMath.centreForSourceAtScreen(
+                scene.imageY(pinchAnchorY), screenY, getHeight(), scale));
+    }
+
+    private double sourceScale(double span) {
+        if (scene == null || getWidth() <= 0) {
+            return 1.0;
+        }
+        double sourceWidth = span / scene.metresPerPixel();
+        return sourceWidth > 0 ? getWidth() / sourceWidth : 1.0;
+    }
+
+    private void endPinch(MotionEvent event) {
+        pinching = false;
+        pinchPrimaryId = MotionEvent.INVALID_POINTER_ID;
+        pinchSecondaryId = MotionEvent.INVALID_POINTER_ID;
+        int keepIndex = event.getActionIndex() == 0 ? 1 : 0;
+        if (keepIndex >= event.getPointerCount()) {
+            keepIndex = 0;
+        }
+        lastTouchX = event.getX(keepIndex);
+        lastTouchY = event.getY(keepIndex);
+        downTouchX = lastTouchX;
+        downTouchY = lastTouchY;
+        dragging = false;
+    }
+
+    private static double pointerDistance(MotionEvent event, int firstIndex, int secondIndex) {
+        double dx = event.getX(firstIndex) - event.getX(secondIndex);
+        double dy = event.getY(firstIndex) - event.getY(secondIndex);
+        return Math.hypot(dx, dy);
+    }
+
+    private static float focusX(MotionEvent event, int firstIndex, int secondIndex) {
+        return (event.getX(firstIndex) + event.getX(secondIndex)) / 2f;
+    }
+
+    private static float focusY(MotionEvent event, int firstIndex, int secondIndex) {
+        return (event.getY(firstIndex) + event.getY(secondIndex)) / 2f;
+    }
+
     private void finishGesture() {
         dragging = false;
+        pinching = false;
+        multiTouch = false;
+        pinchPrimaryId = MotionEvent.INVALID_POINTER_ID;
+        pinchSecondaryId = MotionEvent.INVALID_POINTER_ID;
         if (getParent() != null) {
             getParent().requestDisallowInterceptTouchEvent(false);
         }
@@ -844,9 +1070,20 @@ public class MapView extends View {
     }
 
     private void notifyViewport() {
-        if (viewportListener != null) {
-            viewportListener.onViewportChanged(getZoomLabel(), canZoomIn(), canZoomOut());
+        if (viewportListener == null) {
+            return;
         }
+        String label = getZoomLabel();
+        boolean canIn = canZoomIn();
+        boolean canOut = canZoomOut();
+        if (label.equals(lastViewportLabel)
+                && canIn == lastCanZoomIn && canOut == lastCanZoomOut) {
+            return;
+        }
+        lastViewportLabel = label;
+        lastCanZoomIn = canIn;
+        lastCanZoomOut = canOut;
+        viewportListener.onViewportChanged(label, canIn, canOut);
     }
 
     private void notifyFollow() {
@@ -857,17 +1094,6 @@ public class MapView extends View {
 
     private float dp(float value) {
         return value * getResources().getDisplayMetrics().density;
-    }
-
-    private static String formatSpan(double span) {
-        if (span >= 1000) {
-            double km = span / 1000.0;
-            if (Math.abs(km - Math.rint(km)) < 0.001) {
-                return (int) Math.rint(km) + "km";
-            }
-            return String.format(java.util.Locale.US, "%.1fkm", km);
-        }
-        return (int) Math.rint(span) + "m";
     }
 
     private static void recycleQuietly(@Nullable Bitmap bitmap) {

@@ -1,7 +1,7 @@
 package com.rocom.nearby.net;
 
-/** One TCP packet after link/IP decoding; payload is owned by this object. */
 final class TcpPacket {
+
     final double timestamp;
     final int srcIp;
     final int dstIp;

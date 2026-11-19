@@ -1,33 +1,21 @@
 package com.rocom.nearby.net;
 
+import com.rocom.nearby.entity.NearbyEntity;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Turns the raw pcap bytes received from PCAPdroid into map state.
- *
- * <pre>
- * pcap -> Ethernet/raw IP -> IPv4/TCP:8195 -> TCP reassembly
- *      -> TGCP framing -> AES/opcode -> scene id + player position
- * </pre>
- *
- * <p>Only the opcodes needed by the map are decoded: 307 (self move),
- * 348 (teleport) and 338 (enter scene). The listener receives the latest
- * {@code sceneId + selfX + selfY} and is safe to call from the capture thread;
- * {@code NearbyRuntime.publishPosition} moves it to the main thread.</p>
- */
 public final class NearbyPacketPipeline {
+
     public interface Listener {
         void onMapPosition(int sceneId, double x, double y);
-
-        /** New scene decoded, possibly before its first position update. */
         void onSceneChanged(int sceneId);
+        void onEntities(List<NearbyEntity> entities);
     }
 
     private static final int GAME_PORT = 8195;
-
     private final Listener listener;
     private final PcapReader pcapReader;
     private final Map<String, TcpFlow> flows = new HashMap<>();
@@ -37,7 +25,6 @@ public final class NearbyPacketPipeline {
         this.pcapReader = new PcapReader(this::onPcapRecord);
     }
 
-    /** Feed raw pcap bytes (global header first, then records). */
     public void feed(byte[] data, int offset, int length) {
         if (data == null || length <= 0) {
             return;
@@ -45,7 +32,7 @@ public final class NearbyPacketPipeline {
         try {
             pcapReader.feed(data, offset, length);
         } catch (Throwable ignored) {
-            // A malformed packet must not stop the capture service.
+            
         }
     }
 
@@ -83,7 +70,6 @@ public final class NearbyPacketPipeline {
         }
         int fragment = readU16BE(data, ipStart + 6);
         if ((fragment & 0x3FFF) != 0) {
-            // Do not feed IP fragments into the TCP parser.
             return;
         }
         int srcIp = readIntBE(data, ipStart + 12);
@@ -204,6 +190,7 @@ public final class NearbyPacketPipeline {
     }
 
     private final class TcpFlow {
+
         final TcpReassembler c2sTcp = new TcpReassembler();
         final TcpReassembler s2cTcp = new TcpReassembler();
         final TgcpFramer c2sFramer = new TgcpFramer();
@@ -220,6 +207,11 @@ public final class NearbyPacketPipeline {
                 @Override
                 public void onSceneChanged(int sceneId) {
                     listener.onSceneChanged(sceneId);
+                }
+
+                @Override
+                public void onEntities(List<NearbyEntity> entities) {
+                    listener.onEntities(entities);
                 }
             });
         }

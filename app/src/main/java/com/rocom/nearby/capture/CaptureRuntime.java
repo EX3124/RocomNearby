@@ -5,14 +5,8 @@ import android.os.Looper;
 
 import androidx.annotation.Nullable;
 
-/**
- * Process-local state shared by {@link PcapCaptureService} and the nearby screen.
- *
- * <p>The capture service owns the socket and the pcap file. The activity only
- * observes its latest snapshot, which makes the screen safe to recreate while a
- * capture is running (for example when the user returns from PCAPdroid).</p>
- */
 public final class CaptureRuntime {
+
     public enum State {
         IDLE,
         STARTING,
@@ -30,7 +24,6 @@ public final class CaptureRuntime {
         public final String message;
         public final int port;
         public final boolean connected;
-
         public Snapshot(State state, long bytes, int packets, @Nullable String filePath,
                         String message, int port, boolean connected) {
             this.state = state;
@@ -45,7 +38,6 @@ public final class CaptureRuntime {
 
     public interface Listener {
         void onCaptureSnapshot(Snapshot snapshot);
-
         void onServerReady(int port);
     }
 
@@ -53,10 +45,8 @@ public final class CaptureRuntime {
 
     private static volatile Snapshot current = new Snapshot(
             State.IDLE, 0, 0, null, "", 0, false);
-    private static Listener listener;
 
-    private CaptureRuntime() {
-    }
+    private static Listener listener;
 
     public static Snapshot current() {
         return current;

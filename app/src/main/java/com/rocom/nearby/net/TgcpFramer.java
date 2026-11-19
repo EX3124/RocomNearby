@@ -3,30 +3,13 @@ package com.rocom.nearby.net;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * TGCP frame splitter. Wire format used by the game:
- *
- * <pre>
- * 0..1   magic 0x33 0x66
- * 6..7   kind (0x1002 key, 0x4013 encrypted payload)
- * 9..12  sequence
- * 13..16 header length
- * 17..20 body length
- * 21..   header
- * ...    body
- * </pre>
- */
 final class TgcpFramer {
+
     private static final int MAGIC_0 = 0x33;
     private static final int MAGIC_1 = 0x66;
     private static final int MAX_FRAME = 16 * 1024 * 1024;
-
     private byte[] buffer = new byte[8 * 1024];
     private int length;
-
-    void reset() {
-        length = 0;
-    }
 
     List<TgcpFrame> feed(byte[] data) {
         List<TgcpFrame> frames = new ArrayList<>();
@@ -136,6 +119,7 @@ final class TgcpFramer {
     }
 
     static final class TgcpFrame {
+
         final byte[] raw;
         final byte kind0;
         final byte kind1;

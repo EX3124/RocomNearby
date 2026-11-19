@@ -1,14 +1,7 @@
 package com.rocom.nearby.net;
 
-/**
- * Classic pcap stream reader (what PCAPdroid's TCP exporter sends).
- *
- * <p>Supports the four standard pcap magics, little/big endian record headers,
- * microsecond/nanosecond timestamps and Ethernet / raw-IP / Linux-SLL link
- * types. Packet records are passed to the listener without any protocol
- * interpretation.</p>
- */
 final class PcapReader {
+
     interface Listener {
         void onPacket(double timestamp, byte[] data, int offset, int length);
     }
@@ -18,7 +11,6 @@ final class PcapReader {
     private static final int PCAP_MAGIC_LE = 0xD4C3B2A1;
     private static final int PCAP_NANO_MAGIC_BE = 0xA1B23C4D;
     private static final int PCAP_NANO_MAGIC_LE = 0x4D3CB2A1;
-
     private final Listener listener;
     private byte[] buffer = new byte[64 * 1024];
     private int length;
@@ -50,16 +42,12 @@ final class PcapReader {
         ensureCapacity(length + count);
         System.arraycopy(data, offset, buffer, length, count);
         length += count;
-
         if (!headerParsed) {
             if (length < 24) {
                 return;
             }
             parseHeader();
         } else if (length >= 24 && isPcapMagic(readIntBE(buffer, 0))) {
-            // PCAPdroid may reconnect and send a fresh global header. The
-            // capture service normally removes it, but accepting it here keeps
-            // the reader resilient when fed directly.
             parseHeader();
         }
         parseRecords();
@@ -85,7 +73,6 @@ final class PcapReader {
                 timestampDivisor = 1_000_000L;
                 break;
             default:
-                // Match the reference client's fallback for unknown magic.
                 littleEndian = true;
                 timestampDivisor = 1_000_000L;
                 break;

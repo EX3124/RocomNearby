@@ -1,9 +1,11 @@
 package com.rocom.nearby;
 
+import android.Manifest;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.res.Configuration;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -22,20 +24,25 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.widget.NestedScrollView;
-import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
-import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.lzf.easyfloat.interfaces.OnPermissionResult;
 import com.lzf.easyfloat.permission.PermissionUtils;
+import com.rocom.nearby.capture.CaptureNotification;
+import com.rocom.nearby.capture.NearbyAlertNotification;
 import com.rocom.nearby.capture.CaptureRuntime;
+import com.rocom.nearby.capture.CaptureTarget;
 import com.rocom.nearby.capture.PcapCaptureService;
 import com.rocom.nearby.capture.PcapControl;
+import com.rocom.nearby.entity.NearbyEntity;
+import com.rocom.nearby.entity.NearbyListView;
 import com.rocom.nearby.map.MapCardView;
 import com.rocom.nearby.map.MapCatalog;
 import com.rocom.nearby.map.MapPaint;
@@ -43,24 +50,19 @@ import com.rocom.nearby.map.MapPaintStore;
 import com.rocom.nearby.map.NearbyRuntime;
 import com.rocom.nearby.overlay.NearbyOverlay;
 
-import java.util.regex.Pattern;
-
-/**
- * Standalone nearby screen. Its first milestone is the capture source: request
- * PCAPdroid's control consent, receive the target app's pcap stream and make the
- * editable target package an explicit part of the UI.
- */
 public class MainActivity extends AppCompatActivity {
-    private static final String PREFS = "nearby";
-    private static final String KEY_TARGET = "target_package";
+
+    private static final String PREFS = CaptureTarget.PREFS_NAME;
+    private static final int REQUEST_POST_NOTIFICATIONS = 0x4e01;
+    private static final String KEY_TARGET = CaptureTarget.KEY_TARGET;
     private static final String STATE_MAP_VISIBLE = "map_visible";
     private static final String STATE_MAP_FOLLOWING = "map_following";
     private static final String STATE_MAP_CENTER_X = "map_center_x";
     private static final String STATE_MAP_CENTER_Y = "map_center_y";
-    private static final String STATE_MAP_ZOOM = "map_zoom";
-    private static final Pattern PACKAGE_PATTERN = Pattern.compile(
-            "^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)+$");
-
+    private static final String STATE_MAP_SPAN = "map_span";
+    public static final String EXTRA_OPEN_MAP = "com.rocom.nearby.extra.OPEN_MAP";
+    public static final String EXTRA_TRACK_ENTITY = "com.rocom.nearby.extra.TRACK_ENTITY";
+    
     private enum Phase {
         IDLE,
         PREPARING,
@@ -70,16 +72,14 @@ public class MainActivity extends AppCompatActivity {
         ERROR
     }
 
-    private View root;
     private View emptyCard;
     private View actionRow;
     private NestedScrollView scrollView;
+    private View contentContainer;
     private View targetRow;
-    private TextView targetPrefix;
     private TextView cardTitle;
     private TextView sceneSubtitle;
-    private View floatButton;
-    private TextView floatButtonLabel;
+    private View overlayButton;
     private ImageView compassIcon;
     private TextInputLayout targetInputLayout;
     private TextInputEditText targetInput;
@@ -87,34 +87,31 @@ public class MainActivity extends AppCompatActivity {
     private Button stopButton;
     private Button mapButton;
     private MapCardView mapCard;
-
+    private NearbyListView nearbyList;
+    private final NearbyListView.OnEntityClickListener trackEntityListener =
+            this::onEntityCardTapped;
     private SharedPreferences preferences;
     private String defaultTarget;
     private String lastValidTarget;
+    private CaptureTarget captureTarget;
     private Phase phase = Phase.IDLE;
     private CaptureRuntime.Snapshot snapshot = CaptureRuntime.current();
     private NearbyRuntime.Snapshot nearby = NearbyRuntime.current();
     private boolean authorized;
     private boolean controlRequested;
     private int localPort;
-    /**
-     * Scene resource id reported by the nearby tracker. 0 means "not known yet";
-     * the subtitle stays blank until a real id arrives.
-     */
     private int sceneId;
-    /** Whether the user has switched the map section on. Default is off. */
     private boolean mapVisible;
     private boolean mapFollowing = true;
     private double mapCenterX = Double.NaN;
     private double mapCenterY = Double.NaN;
-    private int mapZoomIndex = -1;
+    private double mapSpan = Double.NaN;
     private boolean mapViewportRestored;
-
+    private boolean pendingMapExpand;
+    private String pendingTrackEntityKey;
     private ActivityResultLauncher<Intent> captureStartLauncher;
     private ActivityResultLauncher<Intent> captureStopLauncher;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private final NearbyOverlay.Callback overlayCallback = this::refreshFloatButton;
-
     private final NearbyRuntime.Listener nearbyListener = this::applyNearbySnapshot;
 
     private final CaptureRuntime.Listener captureListener = new CaptureRuntime.Listener() {
@@ -141,32 +138,39 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.main);
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root), (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            return insets;
+        });
+
+        CaptureNotification.createChannel(this);
+        NearbyAlertNotification.createChannel(this);
         MapPaintStore.initialize(this);
         if (savedInstanceState != null) {
             mapVisible = savedInstanceState.getBoolean(STATE_MAP_VISIBLE, false);
             mapFollowing = savedInstanceState.getBoolean(STATE_MAP_FOLLOWING, true);
             mapCenterX = savedInstanceState.getDouble(STATE_MAP_CENTER_X, Double.NaN);
             mapCenterY = savedInstanceState.getDouble(STATE_MAP_CENTER_Y, Double.NaN);
-            mapZoomIndex = savedInstanceState.getInt(STATE_MAP_ZOOM, -1);
+            mapSpan = savedInstanceState.getDouble(STATE_MAP_SPAN, Double.NaN);
         }
-
         preferences = getSharedPreferences(PREFS, MODE_PRIVATE);
         bindViews();
-        applyWindowInsets();
         setupActivityResults();
         setupTargetEditor();
         setupActions();
+        requestNotificationPermissionIfNeeded();
         updateSceneSubtitle();
-
         defaultTarget = getString(R.string.target_default);
         lastValidTarget = preferences.getString(KEY_TARGET, defaultTarget);
-        if (!isValidPackage(lastValidTarget)) {
+        if (!CaptureTarget.isValid(lastValidTarget)) {
             lastValidTarget = defaultTarget;
         }
+        captureTarget = CaptureTarget.parse(lastValidTarget);
         targetInput.setText(lastValidTarget);
         targetInput.clearFocus();
         resetTargetInputPadding();
-
+        readTrackRequest(getIntent());
         snapshot = CaptureRuntime.current();
         render();
     }
@@ -176,22 +180,26 @@ public class MainActivity extends AppCompatActivity {
         super.onStart();
         CaptureRuntime.setListener(captureListener);
         NearbyRuntime.setListener(nearbyListener);
-        NearbyOverlay.setCallback(overlayCallback);
         applySnapshot(CaptureRuntime.current());
         applyNearbySnapshot(NearbyRuntime.current());
         requestControlIfServerAlreadyWaiting();
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        refreshFloatButton();
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        boolean requested = readTrackRequest(intent);
+        if (requested) {
+            applyNearbySnapshot(NearbyRuntime.current());
+        }
     }
 
     @Override
     protected void onDestroy() {
         mainHandler.removeCallbacks(serviceStartTimeout);
         NearbyRuntime.clearListener(nearbyListener);
+        NearbyAlertNotification.releaseAll(this);
         if (mapCard != null) {
             mapCard.release();
         }
@@ -206,11 +214,11 @@ public class MainActivity extends AppCompatActivity {
         if (mapCard != null && mapCard.isBound()) {
             outState.putDouble(STATE_MAP_CENTER_X, mapCard.getCenterX());
             outState.putDouble(STATE_MAP_CENTER_Y, mapCard.getCenterY());
-            outState.putInt(STATE_MAP_ZOOM, mapCard.getZoomIndex());
+            outState.putDouble(STATE_MAP_SPAN, mapCard.getSpanMetres());
         } else {
             outState.putDouble(STATE_MAP_CENTER_X, mapCenterX);
             outState.putDouble(STATE_MAP_CENTER_Y, mapCenterY);
-            outState.putInt(STATE_MAP_ZOOM, mapZoomIndex);
+            outState.putDouble(STATE_MAP_SPAN, mapSpan);
         }
         super.onSaveInstanceState(outState);
     }
@@ -218,7 +226,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         CaptureRuntime.clearListener(captureListener);
-        NearbyOverlay.clearCallback(overlayCallback);
         if (targetInput.hasFocus()) {
             commitTarget(false);
             targetInput.clearFocus();
@@ -227,17 +234,27 @@ public class MainActivity extends AppCompatActivity {
         super.onStop();
     }
 
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return;
+        }
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                REQUEST_POST_NOTIFICATIONS);
+    }
+
     private void bindViews() {
-        root = findViewById(R.id.root);
         emptyCard = findViewById(R.id.empty_card);
         actionRow = findViewById(R.id.action_row);
         scrollView = findViewById(R.id.scroll_view);
+        contentContainer = findViewById(R.id.content_container);
         targetRow = findViewById(R.id.target_row);
-        targetPrefix = findViewById(R.id.target_prefix);
         cardTitle = findViewById(R.id.card_title);
         sceneSubtitle = findViewById(R.id.scene_subtitle);
-        floatButton = findViewById(R.id.float_button);
-        floatButtonLabel = findViewById(R.id.float_button_label);
+        overlayButton = findViewById(R.id.overlay_button);
         compassIcon = findViewById(R.id.compass_icon);
         targetInputLayout = findViewById(R.id.target_input_layout);
         targetInput = findViewById(R.id.target_input);
@@ -246,23 +263,7 @@ public class MainActivity extends AppCompatActivity {
         mapButton = findViewById(R.id.map_button);
         mapCard = findViewById(R.id.map_card);
         mapCard.setOnFollowChangedListener(() -> mapFollowing = mapCard.isFollowing());
-    }
-
-    private void applyWindowInsets() {
-        ViewCompat.setOnApplyWindowInsetsListener(root, (view, windowInsets) -> {
-            Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-            Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
-            root.setPadding(bars.left, bars.top, bars.right,
-                    Math.max(bars.bottom, ime.bottom));
-            return windowInsets;
-        });
-        int nightMode = getResources().getConfiguration().uiMode
-                & Configuration.UI_MODE_NIGHT_MASK;
-        boolean dark = nightMode == Configuration.UI_MODE_NIGHT_YES;
-        WindowInsetsControllerCompat controller =
-                WindowCompat.getInsetsController(getWindow(), root);
-        controller.setAppearanceLightStatusBars(!dark);
-        controller.setAppearanceLightNavigationBars(!dark);
+        nearbyList = findViewById(R.id.nearby_list);
     }
 
     private void setupActivityResults() {
@@ -282,15 +283,11 @@ public class MainActivity extends AppCompatActivity {
                         stopLocalReceiver();
                     }
                 });
-
         captureStopLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
                     authorized = false;
                     if (phase == Phase.STOPPING) {
-                        // The control activity does not always return a
-                        // result (for example when capture already stopped),
-                        // so finishing the UI must not depend on it.
                         phase = Phase.IDLE;
                         render();
                     }
@@ -300,14 +297,11 @@ public class MainActivity extends AppCompatActivity {
     private void setupTargetEditor() {
         View.OnClickListener focusTarget = view -> focusTargetInput();
         targetRow.setOnClickListener(focusTarget);
-        targetPrefix.setOnClickListener(focusTarget);
-
         targetInput.setOnFocusChangeListener((view, hasFocus) -> {
             if (!hasFocus) {
                 commitTarget(false);
             }
         });
-
         targetInput.setOnEditorActionListener((view, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 if (commitTarget(true)) {
@@ -323,24 +317,20 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupActions() {
         actionButton.setOnClickListener(view -> {
-            if (phase == Phase.CAPTURING || phase == Phase.REQUESTING
-                    || phase == Phase.STOPPING) {
+            if (phase == Phase.PREPARING || phase == Phase.CAPTURING
+                    || phase == Phase.REQUESTING || phase == Phase.STOPPING) {
                 stopCaptureFlow();
             } else if (phase == Phase.IDLE || phase == Phase.ERROR) {
                 startCaptureFlow();
             }
         });
-
-        floatButton.setOnClickListener(view -> toggleFloatWindow());
-
+        overlayButton.setOnClickListener(view -> toggleOverlayWindow());
         mapButton.setOnClickListener(view -> toggleMapSection());
-
         stopButton.setOnClickListener(view -> {
             if (isCaptureActive()) {
                 stopCaptureFlow();
             }
         });
-
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -358,47 +348,19 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * Feeds the scene id once the nearby tracker can parse it out of the pcap.
-     * The header shows the original app's {@code 场景 <id>} form, and keeps its
-     * {@code 当前场景} fallback while the id is still unknown.
-     */
-    public void setSceneId(int newSceneId) {
-        int normalized = Math.max(0, newSceneId);
-        if (sceneId == normalized) {
-            return;
-        }
-        sceneId = normalized;
-        updateMapContent();
-        updateSceneSubtitle();
-    }
-
-    /**
-     * Applies the tracker's latest scene / player position. The map is only
-     * allowed to exist while a real position is available and the capture is
-     * running; pcap bytes on their own are not a map.
-     */
     private void applyNearbySnapshot(NearbyRuntime.Snapshot newSnapshot) {
         nearby = newSnapshot;
-        // The subtitle follows scene data only, with or without a position, so
-        // this must run for every snapshot - not just on the first one after a
-        // configuration change.
         sceneId = Math.max(0, newSnapshot.sceneId);
         if (sceneId == 0) {
-            // Capture stopped / data cleared: the map section closes too. A
-            // plain scene switch keeps the user's expand/collapse choice.
             mapVisible = false;
         }
         updateMapContent();
+        updateNearbyList();
         updateEmptyCardVisibility();
         updateSceneSubtitle();
         updateActionRow();
     }
 
-    /**
-     * The map button only exists while coordinates are available. It switches
-     * the map section on/off; the map itself is hidden by default.
-     */
     private void toggleMapSection() {
         if (!hasLivePosition()) {
             return;
@@ -407,9 +369,38 @@ public class MainActivity extends AppCompatActivity {
         updateMapContent();
         updateSceneSubtitle();
         updateActionRow();
-        if (mapVisible && mapCard != null && scrollView != null) {
-            scrollView.post(() -> scrollView.smoothScrollTo(0, mapCard.getTop()));
+        if (mapVisible && mapCard != null && scrollView != null
+                && mapCard.getParent() == contentContainer) {
+            scrollView.post(() -> scrollView.smoothScrollTo(0, mapScrollTarget()));
         }
+    }
+
+    private int mapScrollTarget() {
+        if (mapCard == null || contentContainer == null) {
+            return 0;
+        }
+        int target = mapCard.getTop() - contentContainer.getPaddingTop();
+        return Math.max(0, target);
+    }
+
+    private void clampScrollToContent() {
+        if (scrollView == null || contentContainer == null) {
+            return;
+        }
+        if (scrollView.getScrollY() <= 0) {
+            return;
+        }
+        scrollView.post(() -> {
+            if (scrollView == null || contentContainer == null) {
+                return;
+            }
+            int viewport = scrollView.getHeight() - scrollView.getPaddingTop()
+                    - scrollView.getPaddingBottom();
+            int max = Math.max(0, contentContainer.getHeight() - viewport);
+            if (scrollView.getScrollY() > max) {
+                scrollView.scrollTo(0, max);
+            }
+        });
     }
 
     private void updateSceneSubtitle() {
@@ -420,19 +411,15 @@ public class MainActivity extends AppCompatActivity {
             sceneSubtitle.setText("");
             return;
         }
-        // The map's bottom-left label lives in the header instead of being
-        // repeated under the viewport. This follows scene data only; expanding
-        // or collapsing the map must not change the subtitle.
         MapCatalog.Scene scene = MapCatalog.find(sceneId);
         sceneSubtitle.setText(scene != null
                 ? scene.name
                 : getString(R.string.sub_title, sceneId));
     }
 
-    private void toggleFloatWindow() {
+    private void toggleOverlayWindow() {
         if (NearbyOverlay.isShowing()) {
             NearbyOverlay.dismiss();
-            refreshFloatButton();
             return;
         }
         if (!canDrawOverlays()) {
@@ -440,18 +427,6 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         NearbyOverlay.show(this);
-        refreshFloatButton();
-    }
-
-    private void refreshFloatButton() {
-        if (floatButtonLabel == null) {
-            return;
-        }
-        int label = NearbyOverlay.isShowing()
-                ? R.string.float_window_close
-                : R.string.float_window;
-        floatButtonLabel.setText(label);
-        floatButton.setContentDescription(getString(label));
     }
 
     private boolean canDrawOverlays() {
@@ -467,11 +442,13 @@ public class MainActivity extends AppCompatActivity {
                 .setTitle(R.string.dialog_permission_title)
                 .setMessage(R.string.dialog_permission_message)
                 .setNegativeButton(R.string.dialog_cancel, null)
-                .setPositiveButton(R.string.dialog_permission, (dialog, which) -> {
-                    // EasyFloat checks and requests the overlay permission itself.
-                    NearbyOverlay.show(MainActivity.this);
-                    refreshFloatButton();
-                })
+                .setPositiveButton(R.string.dialog_permission,
+                        (dialog, which) -> PermissionUtils.requestPermission(this, new OnPermissionResult() {
+                            @Override
+                            public void permissionResult(boolean b) {
+
+                            }
+                        }))
                 .show();
     }
 
@@ -494,18 +471,22 @@ public class MainActivity extends AppCompatActivity {
         hideKeyboard();
         mapVisible = false;
         NearbyRuntime.clear();
+        pendingMapExpand = false;
+        pendingTrackEntityKey = null;
+        boolean remote = isRemoteTarget();
         authorized = false;
-        controlRequested = false;
+        controlRequested = remote;
         localPort = 0;
         phase = Phase.PREPARING;
         render();
-
         try {
             Intent serviceIntent = new Intent(this, PcapCaptureService.class)
                     .setAction(PcapCaptureService.ACTION_START);
-            startService(serviceIntent);
+            ContextCompat.startForegroundService(this, serviceIntent);
             mainHandler.removeCallbacks(serviceStartTimeout);
-            mainHandler.postDelayed(serviceStartTimeout, 4000);
+            if (!remote) {
+                mainHandler.postDelayed(serviceStartTimeout, 4000);
+            }
         } catch (Throwable e) {
             phase = Phase.ERROR;
             render();
@@ -522,6 +503,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void launchPcapdroidControlRequest() {
         if (controlRequested) {
+            return;
+        }
+        if (isRemoteTarget()) {
+            controlRequested = true;
             return;
         }
         controlRequested = true;
@@ -543,23 +528,27 @@ public class MainActivity extends AppCompatActivity {
         }
         mapVisible = false;
         NearbyRuntime.clear();
+        pendingMapExpand = false;
+        pendingTrackEntityKey = null;
         phase = Phase.STOPPING;
         render();
-
-        if (authorized) {
-            try {
-                captureStopLauncher.launch(PcapControl.buildStopIntent());
-            } catch (Throwable ignored) {
-                // The local receiver still needs to be closed.
-            }
+        if (isRemoteTarget()) {
             authorized = false;
+            stopLocalReceiver();
+        } else {
+            if (authorized) {
+                try {
+                    captureStopLauncher.launch(PcapControl.buildStopIntent());
+                } catch (Throwable ignored) {
+                }
+                authorized = false;
+            }
+            mainHandler.postDelayed(this::stopLocalReceiver, 700);
         }
-        mainHandler.postDelayed(this::stopLocalReceiver, 700);
         mainHandler.removeCallbacks(stopFallback);
         mainHandler.postDelayed(stopFallback, 1600);
     }
 
-    /** Keeps the screen usable when the receiver had already exited. */
     private final Runnable stopFallback = () -> {
         if (phase == Phase.STOPPING) {
             phase = Phase.IDLE;
@@ -573,7 +562,6 @@ public class MainActivity extends AppCompatActivity {
                     .setAction(PcapCaptureService.ACTION_STOP);
             startService(stop);
         } catch (Throwable ignored) {
-            // Already stopped.
         }
     }
 
@@ -600,13 +588,9 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case LISTENING:
                 if (newSnapshot.bytes > 0) {
-                    // The receiver already has data; we are just between
-                    // reconnects, not waiting for the initial consent.
                     phase = Phase.CAPTURING;
                     authorized = true;
                 } else if (phase == Phase.IDLE) {
-                    // The activity was recreated while the capture service was
-                    // already listening. Let onStart resume the control request.
                     phase = Phase.PREPARING;
                     localPort = newSnapshot.port;
                 }
@@ -639,16 +623,14 @@ public class MainActivity extends AppCompatActivity {
         targetRow.setClickable(canEditTarget);
         targetRow.setAlpha(canEditTarget ? 1f : 0.7f);
         compassIcon.setAlpha(captureActive ? 0.8f : 0.5f);
-
         String title;
         String button;
         boolean buttonEnabled = true;
-
         switch (phase) {
             case PREPARING:
-                title = getString(R.string.title_requesting);
+                title = getString(isRemoteTarget() ? R.string.title_connecting
+                        : R.string.title_requesting);
                 button = getString(R.string.action_stop);
-                buttonEnabled = false;
                 break;
             case REQUESTING:
                 title = getString(authorized
@@ -675,7 +657,6 @@ public class MainActivity extends AppCompatActivity {
                 button = getString(R.string.action_start);
                 break;
         }
-
         cardTitle.setText(title);
         actionButton.setText(button);
         actionButton.setEnabled(buttonEnabled);
@@ -686,15 +667,6 @@ public class MainActivity extends AppCompatActivity {
         updateActionRow();
     }
 
-    /**
-     * Binds the (always present) map card to the current scene and decides
-     * whether it is visible.
-     *
-     * <p>The card is a normal child of {@code content_container} in
-     * {@code main.xml}; nothing is added or removed at runtime. Visibility is
-     * driven purely by data: a known scene map plus a live player position,
-     * plus the user's expand/collapse choice.</p>
-     */
     private void updateMapContent() {
         if (mapCard == null) {
             return;
@@ -706,10 +678,18 @@ public class MainActivity extends AppCompatActivity {
                 ? MapCatalog.find(targetSceneId)
                 : null;
         boolean canShow = targetScene != null && hasLivePosition();
+        if (canShow && pendingMapExpand) {
+            pendingMapExpand = false;
+            mapVisible = true;
+            if (scrollView != null && mapCard != null
+                    && mapCard.getParent() == contentContainer) {
+                scrollView.post(() -> scrollView.smoothScrollTo(0, mapScrollTarget()));
+            }
+        }
+        syncCardTaps(canShow && mapVisible);
         if (!canShow) {
-            // No scene map (or no position yet): nothing to draw. The card is
-            // not released, so re-entering the scene keeps the same instance.
-            mapCard.setVisibility(View.INVISIBLE);
+            mapCard.setVisibility(View.GONE);
+            clampScrollToContent();
             updateActionRow();
             return;
         }
@@ -720,24 +700,84 @@ public class MainActivity extends AppCompatActivity {
             mapCard.setFollowing(mapFollowing);
             if (!mapFollowing && !mapViewportRestored
                     && Double.isFinite(mapCenterX) && Double.isFinite(mapCenterY)
-                    && mapZoomIndex >= 0) {
+                    && mapSpan > 0) {
                 mapViewportRestored = true;
-                mapCard.restoreViewport(mapCenterX, mapCenterY, mapZoomIndex);
+                mapCard.restoreViewport(mapCenterX, mapCenterY, mapSpan);
             }
         } else {
             mapCard.updateSelfPosition(nearby.selfX, nearby.selfY);
         }
-        mapCard.setVisibility(mapVisible ? View.VISIBLE : View.INVISIBLE);
+        mapCard.setEntities(nearby.entities);
+        applyPendingTrack();
+        mapCard.setVisibility(mapVisible ? View.VISIBLE : View.GONE);
+        clampScrollToContent();
         updateActionRow();
+    }
+
+    private void syncCardTaps(boolean enabled) {
+        if (nearbyList == null) {
+            return;
+        }
+        nearbyList.setOnEntityClickListener(enabled ? trackEntityListener : null);
+    }
+
+    private void onEntityCardTapped(NearbyEntity entity) {
+        if (mapCard == null || entity == null) {
+            return;
+        }
+        mapCard.trackEntity(entity);
+        mapFollowing = mapCard.isFollowing();
+    }
+
+    private boolean readTrackRequest(@Nullable Intent intent) {
+        if (intent == null || !intent.getBooleanExtra(EXTRA_OPEN_MAP, false)) {
+            return false;
+        }
+        intent.removeExtra(EXTRA_OPEN_MAP);
+        pendingMapExpand = true;
+        String key = intent.getStringExtra(EXTRA_TRACK_ENTITY);
+        intent.removeExtra(EXTRA_TRACK_ENTITY);
+        if (!TextUtils.isEmpty(key)) {
+            pendingTrackEntityKey = key;
+        }
+        return true;
+    }
+
+    private void applyPendingTrack() {
+        if (pendingTrackEntityKey == null || mapCard == null) {
+            return;
+        }
+        if (nearby.entities.isEmpty()) {
+            return;
+        }
+        NearbyEntity match = null;
+        for (NearbyEntity candidate : nearby.entities) {
+            if (candidate != null && pendingTrackEntityKey.equals(candidate.identityKey())) {
+                match = candidate;
+                break;
+            }
+        }
+        pendingTrackEntityKey = null;
+        if (match == null) {
+            return;
+        }
+        mapCard.trackEntity(match);
+        mapFollowing = mapCard.isFollowing();
+    }
+
+    private void updateNearbyList() {
+        if (nearbyList == null) {
+            return;
+        }
+        double selfX = nearby.hasPosition ? nearby.selfX : Double.NaN;
+        double selfY = nearby.hasPosition ? nearby.selfY : Double.NaN;
+        nearbyList.bind(nearby.entities, selfX, selfY);
     }
 
     private void updateEmptyCardVisibility() {
         if (emptyCard == null) {
             return;
         }
-        // The empty card is the pre-position state. Once the tracker has a
-        // live position, the action row takes over, whether the map is
-        // expanded or not.
         emptyCard.setVisibility(hasLivePosition() ? View.INVISIBLE : View.VISIBLE);
     }
 
@@ -782,11 +822,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * TextInputLayout still applies the filled-box side padding once, even when
-     * boxBackgroundMode is none. The target line must stay compact, so clear the
-     * padding which Material injected into the edit text.
-     */
     private void resetTargetInputPadding() {
         if (targetInput != null) {
             targetInput.setPadding(0, 0, 0, 0);
@@ -800,12 +835,11 @@ public class MainActivity extends AppCompatActivity {
         String value = targetInput.getText() != null
                 ? targetInput.getText().toString().trim() : "";
         if (TextUtils.isEmpty(value)) {
-            // An empty target silently falls back to the default package.
             value = defaultTarget;
             targetInput.setText(value);
             targetInput.setSelection(value.length());
         }
-        if (!isValidPackage(value)) {
+        if (!CaptureTarget.isValid(value)) {
             if (showError) {
                 focusTargetInput();
             } else {
@@ -819,13 +853,12 @@ public class MainActivity extends AppCompatActivity {
             targetInput.setText(value);
         }
         preferences.edit().putString(KEY_TARGET, value).apply();
+        captureTarget = CaptureTarget.parse(value);
         return true;
     }
 
-    private static boolean isValidPackage(String value) {
-        return !TextUtils.isEmpty(value)
-                && value.length() <= 150
-                && PACKAGE_PATTERN.matcher(value).matches();
+    private boolean isRemoteTarget() {
+        return captureTarget != null && captureTarget.isServer();
     }
 
     private void showMissingPcapdroidDialog() {
@@ -849,7 +882,7 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(new Intent(Intent.ACTION_VIEW,
                         Uri.parse("https://github.com/emanuele-f/PCAPdroid/releases")));
             } catch (Throwable ignored) {
-                // Neither a market nor a browser can handle the intent.
+                
             }
         }
     }
@@ -864,5 +897,4 @@ public class MainActivity extends AppCompatActivity {
             manager.hideSoftInputFromWindow(focused.getWindowToken(), 0);
         }
     }
-
 }

@@ -1,5 +1,6 @@
 package com.rocom.nearby.capture;
 
+import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -147,6 +148,7 @@ public final class NearbyAlertNotification {
         return SLOT_BASE;
     }
 
+    @SuppressLint("MissingPermission")
     private static void post(Context context, NearbyEntity entity, int id, int labelRes) {
         Intent intent = new Intent(context, MainActivity.class)
                 .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK

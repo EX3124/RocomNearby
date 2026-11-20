@@ -15,8 +15,8 @@ import java.util.Set;
 
 final class NearbyTracker {
     
-    static final int MAX_RECORDS = 300;
-    static final int MAX_CARDS = 120;
+    static final int MAX_RECORDS = 512;
+    static final int MAX_CARDS = 256;
     static final double BIND_RADIUS_CM = 1200;
     static final double SELF_TOKEN_RADIUS_CM = 80;
     static final int SELF_TOKEN_VOTES = 4;

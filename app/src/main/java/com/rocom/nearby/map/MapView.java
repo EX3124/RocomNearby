@@ -226,6 +226,10 @@ public class MapView extends View {
     }
 
     public void setPaint(@Nullable MapPaint mapPaint) {
+        if (paint == mapPaint) {
+            invalidate();
+            return;
+        }
         paint = mapPaint;
         paintOverlay = null;
         paintOverlayVersion = -1;

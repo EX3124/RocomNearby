@@ -10,6 +10,7 @@ import android.view.ViewParent;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.rocom.nearby.R;
@@ -34,6 +35,8 @@ public class MapCardView extends LinearLayout {
     private double selfY = Double.NaN;
     @Nullable
     private Runnable followChangedListener;
+    @NonNull
+    private final MapPaint.Listener paintListener;
 
     public MapCardView(Context context) {
         this(context, null);
@@ -59,6 +62,10 @@ public class MapCardView extends LinearLayout {
         paintChip = findViewById(R.id.paint_chip);
         paintClear = findViewById(R.id.paint_clear);
         locate = findViewById(R.id.locate);
+        paintListener = sceneId -> {
+            syncPaint();
+            mapView.invalidate();
+        };
         mapView.setOnViewportChangedListener((label, canZoomIn, canZoomOut) -> {
             zoomLevel.setText(label);
             updateZoomButton(zoomIn, canZoomIn);
@@ -70,9 +77,8 @@ public class MapCardView extends LinearLayout {
         locate.setOnClickListener(view -> mapView.toggleFollowing());
         paintChip.setOnClickListener(view -> togglePaint());
         paintClear.setOnClickListener(view -> {
-            if (paint != null) {
-                paint.reset();
-                mapView.invalidate();
+            if (scene != null) {
+                MapPaint.clear(scene.sceneId);
             }
         });
         applyPaintState();
@@ -206,7 +212,7 @@ public class MapCardView extends LinearLayout {
                      double worldX, double worldY) {
         boolean sameScene = scene != null && scene.sceneId == newScene.sceneId;
         scene = newScene;
-        paint = newPaint;
+        paint = newPaint != null ? newPaint : MapPaint.get(newScene.sceneId);
         selfX = worldX;
         selfY = worldY;
         mapView.setScene(newScene);
@@ -236,6 +242,7 @@ public class MapCardView extends LinearLayout {
     }
 
     public void updateSelfPosition(double worldX, double worldY) {
+        syncPaint();
         if (worldX == selfX && worldY == selfY) {
             return;
         }
@@ -278,12 +285,41 @@ public class MapCardView extends LinearLayout {
     }
 
     private void togglePaint() {
-        MapPaintStore.setEnabled(!MapPaintStore.isEnabled());
+        boolean enabled = !MapPaint.isEnabled();
+        MapPaint.setEnabled(enabled);
+        if (enabled && scene != null && Double.isFinite(selfX) && Double.isFinite(selfY)) {
+            MapPaint.record(scene.sceneId, selfX, selfY);
+        }
+        syncPaint();
+        applyPaintState();
+        mapView.invalidate();
+    }
+
+    public void syncPaint() {
+        MapPaint current = scene == null ? null : MapPaint.get(scene.sceneId);
+        if (current == paint) {
+            return;
+        }
+        paint = current;
+        mapView.setPaint(current);
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        MapPaint.addListener(paintListener);
+        syncPaint();
         applyPaintState();
     }
 
+    @Override
+    protected void onDetachedFromWindow() {
+        MapPaint.removeListener(paintListener);
+        super.onDetachedFromWindow();
+    }
+
     private void applyPaintState() {
-        boolean visible = MapPaintStore.isEnabled();
+        boolean visible = MapPaint.isEnabled();
         paintChip.setSelected(visible);
         paintChip.setBackgroundResource(visible
                 ? R.drawable.bg_map_chip_on

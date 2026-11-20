@@ -46,7 +46,6 @@ import com.rocom.nearby.entity.NearbyListView;
 import com.rocom.nearby.map.MapCardView;
 import com.rocom.nearby.map.MapCatalog;
 import com.rocom.nearby.map.MapPaint;
-import com.rocom.nearby.map.MapPaintStore;
 import com.rocom.nearby.map.NearbyRuntime;
 import com.rocom.nearby.overlay.NearbyOverlay;
 
@@ -146,7 +145,6 @@ public class MainActivity extends AppCompatActivity {
 
         CaptureNotification.createChannel(this);
         NearbyAlertNotification.createChannel(this);
-        MapPaintStore.initialize(this);
         if (savedInstanceState != null) {
             mapVisible = savedInstanceState.getBoolean(STATE_MAP_VISIBLE, false);
             mapFollowing = savedInstanceState.getBoolean(STATE_MAP_FOLLOWING, true);
@@ -695,7 +693,7 @@ public class MainActivity extends AppCompatActivity {
         }
         MapCatalog.Scene boundScene = mapCard.getScene();
         if (boundScene == null || boundScene.sceneId != targetScene.sceneId) {
-            MapPaint paint = MapPaintStore.get(targetScene.sceneId);
+            MapPaint paint = MapPaint.get(targetScene.sceneId);
             mapCard.bind(targetScene, paint, nearby.selfX, nearby.selfY);
             mapCard.setFollowing(mapFollowing);
             if (!mapFollowing && !mapViewportRestored
@@ -705,6 +703,7 @@ public class MainActivity extends AppCompatActivity {
                 mapCard.restoreViewport(mapCenterX, mapCenterY, mapSpan);
             }
         } else {
+            mapCard.syncPaint();
             mapCard.updateSelfPosition(nearby.selfX, nearby.selfY);
         }
         mapCard.setEntities(nearby.entities);

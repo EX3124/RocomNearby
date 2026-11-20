@@ -9,7 +9,7 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 
 import com.rocom.nearby.R;
-import com.rocom.nearby.map.MapPaintStore;
+import com.rocom.nearby.map.MapPaint;
 import com.rocom.nearby.map.NearbyRuntime;
 import com.rocom.nearby.entity.NearbyEntity;
 import com.rocom.nearby.net.NearbyPacketPipeline;
@@ -61,13 +61,12 @@ public class PcapCaptureService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        MapPaintStore.initialize(this);
         SpeciesNames.load(this);
         SpeciesSizes.load(this);
         packetPipeline = new NearbyPacketPipeline(new NearbyPacketPipeline.Listener() {
             @Override
             public void onMapPosition(int sceneId, double x, double y) {
-                MapPaintStore.record(sceneId, x, y);
+                MapPaint.record(sceneId, x, y);
                 NearbyRuntime.publishPosition(sceneId, x, y);
             }
 
@@ -112,7 +111,6 @@ public class PcapCaptureService extends Service {
             if (packetPipeline != null) {
                 packetPipeline.reset();
             }
-            MapPaintStore.resetSession();
             NearbyRuntime.clear();
             
             NearbyAlertNotification.releaseAll(PcapCaptureService.this);

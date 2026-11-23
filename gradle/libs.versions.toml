@@ -1,11 +1,11 @@
 [versions]
-agp = "9.5.1"
+agp = "9.5.2"
 material = "1.14.0"
-easyfloat = "2.2.4"
+easyfloat = "test-SNAPSHOT"
 
 [libraries]
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
-easyfloat = { module = "com.github.puyang1017:EasyFloat", version.ref = "easyfloat" }
+easyfloat = { module = "com.github.EX3124:EasyFloat", version.ref = "easyfloat" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

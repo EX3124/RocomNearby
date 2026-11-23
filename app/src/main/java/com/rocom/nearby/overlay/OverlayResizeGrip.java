@@ -2,9 +2,14 @@ package com.rocom.nearby.overlay;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.Point;
+import android.hardware.display.DisplayManager;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.view.Display;
 import android.view.MotionEvent;
+import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
@@ -103,24 +108,25 @@ public final class OverlayResizeGrip extends View {
         int dy = Math.round(event.getRawY() - downRawY);
         int width = corner == CORNER_START ? startWidth - dx : startWidth + dx;
         int height = startHeight + dy;
-        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        int screenWidth = resolveScreenWidth(getContext());
+        int screenHeight = resolveScreenHeight(getContext());
         int maxWidth = corner == CORNER_START
                 ? startWindowX + startWidth
-                : metrics.widthPixels - startWindowX;
-        int maxHeight = metrics.heightPixels - startWindowY;
+                : screenWidth - startWindowX;
+        int maxHeight = screenHeight - startWindowY;
         width = clamp(width, minimumWidth(), maxWidth);
         height = clamp(height, minimumHeight(), maxHeight);
+        int x = corner == CORNER_START ? startWindowX + (startWidth - width) : params.x;
         ViewGroup.LayoutParams layout = content.getLayoutParams();
-        if (layout != null && (layout.width != width || layout.height != height)) {
+        boolean sizeChanged = layout != null
+                && (layout.width != width || layout.height != height);
+        if (sizeChanged) {
             layout.width = width;
             layout.height = height;
             content.setLayoutParams(layout);
         }
-        if (corner == CORNER_START && floatTag != null) {
-            int x = startWindowX + (startWidth - width);
-            if (x != params.x) {
-                EasyFloat.updateFloat(floatTag, x, params.y);
-            }
+        if ((sizeChanged || x != params.x) && floatTag != null) {
+            EasyFloat.updateFloat(floatTag, x, params.y, width, height);
         }
     }
 
@@ -137,6 +143,10 @@ public final class OverlayResizeGrip extends View {
     }
 
     private WindowManager.LayoutParams windowParams() {
+        return windowParamsOf(content);
+    }
+
+    static WindowManager.LayoutParams windowParamsOf(View content) {
         if (content == null) {
             return null;
         }
@@ -150,6 +160,78 @@ public final class OverlayResizeGrip extends View {
         return params instanceof WindowManager.LayoutParams
                 ? (WindowManager.LayoutParams) params
                 : null;
+    }
+
+    private static int resolveScreenWidth(Context context) {
+        return resolveScreenSize(context).x;
+    }
+
+    private static int resolveScreenHeight(Context context) {
+        return resolveScreenSize(context).y;
+    }
+
+    static Point resolveScreenSize(Context context) {
+        Context appContext = context.getApplicationContext() != null
+                ? context.getApplicationContext() : context;
+        Display display = defaultDisplay(appContext);
+        if (display == null) {
+            DisplayMetrics metrics = appContext.getResources().getDisplayMetrics();
+            return new Point(metrics.widthPixels, metrics.heightPixels);
+        }
+        int rotation = display.getRotation();
+        boolean sideways = rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Display.Mode mode = display.getMode();
+            if (mode != null) {
+                int physicalWidth = mode.getPhysicalWidth();
+                int physicalHeight = mode.getPhysicalHeight();
+                if (physicalWidth > 0 && physicalHeight > 0) {
+                    return sideways
+                            ? new Point(physicalHeight, physicalWidth)
+                            : new Point(physicalWidth, physicalHeight);
+                }
+            }
+            DisplayMetrics metrics = new DisplayMetrics();
+            display.getRealMetrics(metrics);
+            return orient(metrics.widthPixels, metrics.heightPixels, sideways);
+        }
+        Point size = new Point();
+        display.getRealSize(size);
+        return size;
+    }
+
+    private static Point orient(int width, int height, boolean sideways) {
+        if (width <= 0 || height <= 0) {
+            return new Point(width, height);
+        }
+        if (sideways != (width < height)) {
+            return new Point(width, height);
+        }
+        int longSide = Math.max(width, height);
+        int shortSide = Math.min(width, height);
+        return sideways ? new Point(longSide, shortSide) : new Point(shortSide, longSide);
+    }
+
+    @SuppressWarnings("deprecation")
+    private static Display defaultDisplay(Context context) {
+        try {
+            DisplayManager manager =
+                    (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
+            if (manager != null) {
+                Display display = manager.getDisplay(Display.DEFAULT_DISPLAY);
+                if (display != null) {
+                    return display;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        try {
+            WindowManager windowManager =
+                    (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+            return windowManager != null ? windowManager.getDefaultDisplay() : null;
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     private static int clamp(int value, int min, int max) {

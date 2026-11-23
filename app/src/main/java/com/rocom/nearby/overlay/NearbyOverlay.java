@@ -1,19 +1,20 @@
 package com.rocom.nearby.overlay;
 
 import android.app.Activity;
-import android.content.ComponentCallbacks;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.res.Configuration;
-import android.graphics.Rect;
+import android.graphics.Point;
+import android.hardware.display.DisplayManager;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewParent;
 import android.view.WindowManager;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
-import android.widget.Toast;
+
+import androidx.annotation.NonNull;
 
 import com.lzf.easyfloat.EasyFloat;
 import com.lzf.easyfloat.enums.ShowPattern;
@@ -27,7 +28,6 @@ import java.lang.ref.WeakReference;
 public final class NearbyOverlay {
 
     private static final String TAG = "nearby-overlay";
-    private static WeakReference<Callback> callback = new WeakReference<>(null);
     private static boolean requesting;
     private static final String PREFS = "nearby";
     private static final String KEY_OPACITY = "opacity";
@@ -41,31 +41,8 @@ public final class NearbyOverlay {
     private static int visibleRows;
     private static final NearbyRuntime.Listener SNAPSHOT_LISTENER =
             NearbyOverlay::renderSnapshot;
-    private static int nightMode;
-    private static Context nightModeHost;
-
-    private static final ComponentCallbacks NIGHT_MODE_CALLBACKS = new ComponentCallbacks() {
-        @Override
-        public void onConfigurationChanged(Configuration newConfig) {
-            if (newConfig == null) {
-                return;
-            }
-            int mode = newConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK;
-            if (mode == nightMode) {
-                return;
-            }
-            nightMode = mode;
-            dismiss();
-        }
-
-        @Override
-        public void onLowMemory() {
-        }
-    };
-
-    public interface Callback {
-        void onOverlayStateChanged();
-    }
+    private static DisplayManager displayManager;
+    private static DisplayManager.DisplayListener displaySizeListener;
 
     public static boolean isShowing() {
         return EasyFloat.isShow(TAG);
@@ -73,10 +50,6 @@ public final class NearbyOverlay {
 
     public static void show(Activity activity) {
         if (isShowing() || requesting) {
-            View existing = isShowing() ? floatView.get() : null;
-            if (existing != null) {
-                keepInsideScreen(activity.getApplicationContext(), existing);
-            }
             return;
         }
         View anchor = activity.findViewById(R.id.overlay_button);
@@ -108,51 +81,45 @@ public final class NearbyOverlay {
                     .setLocation(startX, Math.max(0, startY))
                     .setTag(TAG)
                     .setDragEnable(true)
-                    .setDisplayHeight(OverlayScreen::longSide)
                     .registerCallbacks(new OnFloatCallbacks() {
                         @Override
                         public void createdResult(boolean isCreated, String msg, View view) {
                             requesting = false;
-                            notifyState();
                         }
 
                         @Override
-                        public void show(View view) {
+                        public void show(@NonNull View view) {
                             attach(view);
-                            notifyState();
                         }
 
                         @Override
-                        public void hide(View view) {
+                        public void hide(@NonNull View view) {
                             detach();
-                            notifyState();
                         }
 
                         @Override
                         public void dismiss() {
                             detach();
-                            notifyState();
                         }
 
                         @Override
-                        public void touchEvent(View view, MotionEvent event) {
+                        public void touchEvent(@NonNull View view, @NonNull MotionEvent event) {
                             handOffDrag(view, event);
                         }
 
                         @Override
-                        public void drag(View view, MotionEvent event) {
-                            keepInsideScreen(view.getContext().getApplicationContext(), view);
+                        public void drag(@NonNull View view, @NonNull MotionEvent motionEvent) {
+
                         }
 
                         @Override
-                        public void dragEnd(View view) {
-                            keepInsideScreen(view.getContext().getApplicationContext(), view);
+                        public void dragEnd(@NonNull View view) {
+
                         }
                     })
                     .show();
         } catch (Throwable e) {
             requesting = false;
-            notifyState();
         }
     }
 
@@ -160,10 +127,10 @@ public final class NearbyOverlay {
         requesting = false;
         detach();
         EasyFloat.dismiss(TAG, true);
-        notifyState();
     }
 
     private static void bindView(Context appContext, View view) {
+        detach();
         View close = view.findViewById(R.id.overlay_close);
         if (close != null) {
             close.setOnClickListener(clicked -> clicked.post(NearbyOverlay::dismiss));
@@ -246,36 +213,81 @@ public final class NearbyOverlay {
 
     private static void attach(View view) {
         floatView = new WeakReference<>(view);
-        watchNightMode(view.getContext());
+        watchDisplaySize(view);
         NearbyRuntime.addListener(SNAPSHOT_LISTENER);
         renderSnapshot(NearbyRuntime.current());
     }
 
     private static void detach() {
-        unwatchNightMode();
+        unwatchDisplaySize();
         NearbyRuntime.removeListener(SNAPSHOT_LISTENER);
         floatView = new WeakReference<>(null);
         hadCards = false;
         visibleRows = 0;
     }
 
-    private static void watchNightMode(Context context) {
-        Context host = context.getApplicationContext() != null
-                ? context.getApplicationContext()
-                : context;
-        unwatchNightMode();
-        nightMode = host.getResources().getConfiguration().uiMode
-                & Configuration.UI_MODE_NIGHT_MASK;
-        host.registerComponentCallbacks(NIGHT_MODE_CALLBACKS);
-        nightModeHost = host;
-    }
-
-    private static void unwatchNightMode() {
-        if (nightModeHost == null) {
+    private static void watchDisplaySize(View view) {
+        unwatchDisplaySize();
+        Context host = view.getContext().getApplicationContext() != null
+                ? view.getContext().getApplicationContext()
+                : view.getContext();
+        DisplayManager manager = (DisplayManager) host.getSystemService(Context.DISPLAY_SERVICE);
+        if (manager == null) {
             return;
         }
-        nightModeHost.unregisterComponentCallbacks(NIGHT_MODE_CALLBACKS);
-        nightModeHost = null;
+        DisplayManager.DisplayListener listener = new DisplayManager.DisplayListener() {
+            @Override
+            public void onDisplayAdded(int displayId) {
+            }
+
+            @Override
+            public void onDisplayRemoved(int displayId) {
+            }
+
+            @Override
+            public void onDisplayChanged(int displayId) {
+                if (displayId != android.view.Display.DEFAULT_DISPLAY) {
+                    return;
+                }
+                View current = floatView.get();
+                if (current != null) {
+                    current.post(() -> fitToScreen(current));
+                }
+            }
+        };
+        manager.registerDisplayListener(listener, new Handler(Looper.getMainLooper()));
+        displayManager = manager;
+        displaySizeListener = listener;
+    }
+
+    private static void unwatchDisplaySize() {
+        if (displayManager == null || displaySizeListener == null) {
+            return;
+        }
+        displayManager.unregisterDisplayListener(displaySizeListener);
+        displayManager = null;
+        displaySizeListener = null;
+    }
+
+    private static void fitToScreen(View view) {
+        View body = contentRoot(view);
+        ViewGroup.LayoutParams layout = body.getLayoutParams();
+        if (layout == null || layout.width <= 0 || layout.height <= 0) {
+            return;
+        }
+        WindowManager.LayoutParams params = OverlayResizeGrip.windowParamsOf(body);
+        int x = params != null ? Math.max(0, params.x) : 0;
+        int y = params != null ? Math.max(0, params.y) : 0;
+        Point size = OverlayResizeGrip.resolveScreenSize(view.getContext());
+        int maxWidth = Math.max(1, size.x - x);
+        int maxHeight = Math.max(1, size.y - y);
+        if (layout.width <= maxWidth && layout.height <= maxHeight) {
+            return;
+        }
+        layout.width = Math.min(layout.width, maxWidth);
+        layout.height = Math.min(layout.height, maxHeight);
+        body.setLayoutParams(layout);
+        EasyFloat.updateFloat(TAG, x, y, layout.width, layout.height);
     }
 
     private static void renderSnapshot(NearbyRuntime.Snapshot snapshot) {
@@ -422,46 +434,6 @@ public final class NearbyOverlay {
             return;
         }
         fitCardsHeight(content, cards, scroller);
-    }
-
-    private static void keepInsideScreen(Context context, View floatRoot) {
-        if (context == null || floatRoot == null) {
-            return;
-        }
-        WindowManager.LayoutParams params = windowParams(floatRoot);
-        int width = floatRoot.getWidth();
-        int height = floatRoot.getHeight();
-        if (params == null || width <= 0 || height <= 0) {
-            return;
-        }
-        Rect screen = OverlayScreen.bounds(context);
-        int maxX = Math.max(0, screen.width() - width);
-        int maxY = Math.max(0, screen.height() - height);
-        int x = Math.min(Math.max(params.x, 0), maxX);
-        int y = Math.min(Math.max(params.y, 0), maxY);
-        if (x != params.x || y != params.y) {
-            EasyFloat.updateFloat(TAG, x, y);
-        }
-    }
-
-    private static WindowManager.LayoutParams windowParams(View view) {
-        View root = view;
-        ViewParent parent = root.getParent();
-        while (parent instanceof View) {
-            root = (View) parent;
-            parent = root.getParent();
-        }
-        ViewGroup.LayoutParams params = root.getLayoutParams();
-        return params instanceof WindowManager.LayoutParams
-                ? (WindowManager.LayoutParams) params
-                : null;
-    }
-
-    private static void notifyState() {
-        Callback target = callback.get();
-        if (target != null) {
-            target.onOverlayStateChanged();
-        }
     }
 
     private static int dp(Context context, int value) {

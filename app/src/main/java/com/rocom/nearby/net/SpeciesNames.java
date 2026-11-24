@@ -28,57 +28,61 @@ public final class SpeciesNames {
         BATTLE_ONLY_NAMES = Collections.unmodifiableMap(special);
     }
 
-    private static volatile Map<Integer, String> table;
-    
+    private static volatile Map<Integer, String> species;
+    private static volatile Map<Integer, String> forms;
+
     public static void load(Context context) {
-        if (table != null || context == null) {
+        if (species != null || context == null) {
             return;
         }
-        Map<Integer, String> merged = new HashMap<>();
+        Map<Integer, String> speciesTable = new HashMap<>();
+        Map<Integer, String> formTable = new HashMap<>();
         try {
             Resources res = context.getResources();
             parseInto(res.getIntArray(R.array.cfgId), res.getIntArray(R.array.baseConfId),
-                    res.getStringArray(R.array.name), merged);
+                    res.getStringArray(R.array.name), speciesTable, formTable);
         } catch (Throwable e) {
             Log.w(TAG, "Cannot read the species name arrays", e);
         }
-        table = merged;
+        species = speciesTable;
+        forms = formTable;
     }
-    
+
     static void parseInto(int[] cfgIds, int[] baseIds, String[] names,
-                          Map<Integer, String> into) {
+                          Map<Integer, String> speciesInto, Map<Integer, String> formInto) {
         if (cfgIds == null || baseIds == null || names == null) {
             return;
         }
         int count = Math.min(cfgIds.length, Math.min(baseIds.length, names.length));
         for (int i = 0; i < count; i++) {
             if (cfgIds[i] > 0) {
-                putName(into, cfgIds[i], names[i]);
+                putName(formInto, cfgIds[i], names[i], false);
+                putName(speciesInto, baseIds[i], names[i], false);
             }
         }
         for (int i = 0; i < count; i++) {
             if (cfgIds[i] <= 0) {
-                putName(into, baseIds[i], names[i]);
+                putName(speciesInto, baseIds[i], names[i], true);
             }
         }
     }
 
-    private static void putName(Map<Integer, String> into, int id, String raw) {
+    private static void putName(Map<Integer, String> into, int id, String raw, boolean override) {
         String name = raw == null ? "" : raw.trim();
         if (id <= 0 || name.isEmpty() || PLACEHOLDER_NAMES.contains(name)) {
             return;
         }
-        if (!into.containsKey(id)) {
+        if (override || !into.containsKey(id)) {
             into.put(id, name);
         }
     }
 
-    public static String name(long id) {
-        return displayName(table, id);
+    public static String formName(long id) {
+        return displayName(forms, id, false);
     }
 
-    static String displayName(@Nullable Map<Integer, String> loaded, long id) {
-        String known = lookup(loaded, id);
+    static String displayName(@Nullable Map<Integer, String> loaded, long id, boolean battle) {
+        String known = lookup(loaded, id, battle);
         if (known != null) {
             return known;
         }
@@ -86,22 +90,24 @@ public final class SpeciesNames {
     }
 
     @Nullable
-    static String known(long id) {
-        return lookup(table, id);
+    static String speciesLookup(long id) {
+        return lookup(species, id, true);
     }
 
     @Nullable
-    static String lookup(@Nullable Map<Integer, String> loaded, long id) {
+    static String lookup(@Nullable Map<Integer, String> loaded, long id, boolean battle) {
         if (id <= 0 || id > Integer.MAX_VALUE) {
             return null;
         }
         int key = (int) id;
         String name = loaded == null ? null : loaded.get(key);
-        return name != null ? name : BATTLE_ONLY_NAMES.get(key);
+        if (name != null || !battle) {
+            return name;
+        }
+        return BATTLE_ONLY_NAMES.get(key);
     }
 
-    public static int size() {
-        Map<Integer, String> current = table;
-        return current == null ? 0 : current.size();
+    public static String speciesName(long baseConfId) {
+        return displayName(species, baseConfId, true);
     }
 }

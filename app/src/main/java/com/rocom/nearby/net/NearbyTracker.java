@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.Set;
 
 final class NearbyTracker {
-    
+
     static final int MAX_RECORDS = 512;
     static final int MAX_CARDS = 256;
     static final double BIND_RADIUS_CM = 1200;
@@ -123,7 +123,7 @@ final class NearbyTracker {
         }
         return false;
     }
-    
+
     List<NearbyEntity> snapshot(long now) {
         battle.expireIfStale(now);
         List<BattleUnit> enemies = battle.enemies();
@@ -323,14 +323,14 @@ final class NearbyTracker {
         }
         return changed;
     }
-    
+
     private NearbyEntity toBattleEntity(BattleUnit unit) {
         String name = null;
         if (unit.speciesId > 0 && unit.speciesId <= Integer.MAX_VALUE) {
-            name = SpeciesNames.known(unit.speciesId);
+            name = SpeciesNames.speciesLookup(unit.speciesId);
         }
         if (name == null) {
-            name = SpeciesNames.name(unit.speciesId);
+            name = SpeciesNames.speciesName(unit.speciesId);
         }
         return new NearbyEntity(name, (int) unit.level, battleBadges(unit),
                 unit.heightMeters(), unit.weightKg(), unit.voice,
@@ -428,7 +428,7 @@ final class NearbyTracker {
     }
 
     private NearbyEntity toEntity(EntityRecord record) {
-        String name = SpeciesNames.name(record.cfgId);
+        String name = SpeciesNames.formName(record.cfgId);
         return new NearbyEntity(name, (int) record.level,
                 badges(record),
                 record.heightMeters(), record.weightKg(),

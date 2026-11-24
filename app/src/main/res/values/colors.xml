@@ -28,4 +28,6 @@
     <color name="map_special">#FFFFF496</color>
     <color name="map_pollution">@color/badge_pollution</color>
     <color name="map_glow">#1A000000</color>
+    <color name="male">#FF58A9FE</color>
+    <color name="female">#FFB03B3A</color>
 </resources>

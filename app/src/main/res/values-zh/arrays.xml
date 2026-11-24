@@ -76,4 +76,26 @@
         <item>+生命 -魔防</item>
         <item>+生命 -速度</item>
     </string-array>
+
+    <string-array name="bloodline">
+        <item>普</item>
+        <item>草</item>
+        <item>火</item>
+        <item>水</item>
+        <item>光</item>
+        <item>地</item>
+        <item>冰</item>
+        <item>龙</item>
+        <item>电</item>
+        <item>毒</item>
+        <item>虫</item>
+        <item>武</item>
+        <item>翼</item>
+        <item>萌</item>
+        <item>幽</item>
+        <item>恶</item>
+        <item>机械</item>
+        <item>幻</item>
+        <item>首领</item>
+    </string-array>
 </resources>

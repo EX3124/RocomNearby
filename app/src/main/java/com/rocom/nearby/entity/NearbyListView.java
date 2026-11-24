@@ -8,6 +8,7 @@ import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -25,8 +26,6 @@ public final class NearbyListView extends LinearLayout {
     private static final int PADDING_DP = 12;
     private static final int CHIP_TEXT_SP = 10;
     private static final int CHIP_GAP_DP = 4;
-    private static final String NATURE_PREFIX = "nature:";
-    private static final String BADGE_POLLUTION_KEY = "pollution";
     private final ArrayList<Row> rows = new ArrayList<>();
     private final String[] bearings;
     private TextView countView;
@@ -183,6 +182,38 @@ public final class NearbyListView extends LinearLayout {
         }
     }
 
+    private static final int BATTLE_PREPARATION = 10273;
+    private static final int BATTLE_PREPARATION_BOSS = 2033697;
+    private static final int BATTLE_PREPARATION_TIMED = 2081;
+    private static final int BATTLE_PREPARATION_MULTI = 10241;
+    private static final int BATTLE_FIGHTING = 4204837;
+    private static final int BATTLE_FIGHTING_BOSS = 4196645;
+    private static final int BATTLE_FIGHTING_TIMED = 4196641;
+    private static final int BATTLE_FIGHTING_MULTI = 4204805;
+    private static final int BATTLE_SUBSTITUTE = 4204801;
+    private static final int BATTLE_DIZZINESS = 6228257;
+
+    private int fightLabel(long battlestate) {
+        switch ((int) battlestate) {
+            case BATTLE_PREPARATION:
+            case BATTLE_PREPARATION_BOSS:
+            case BATTLE_PREPARATION_TIMED:
+            case BATTLE_PREPARATION_MULTI:
+                return R.string.fight_preparation;
+            case BATTLE_FIGHTING:
+            case BATTLE_FIGHTING_BOSS:
+            case BATTLE_FIGHTING_TIMED:
+            case BATTLE_FIGHTING_MULTI:
+                return R.string.fight_fighting;
+            case BATTLE_SUBSTITUTE:
+                return R.string.fight_substitute;
+            case BATTLE_DIZZINESS:
+                return R.string.fight_dizziness;
+            default:
+                return R.string.fight_fighting;
+        }
+    }
+
     private int dp(int value) {
         return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value,
                 getResources().getDisplayMetrics()));
@@ -206,6 +237,7 @@ public final class NearbyListView extends LinearLayout {
         private final TextView bearing;
         private final TextView distance;
         private final TextView fight;
+        private final ImageView gender;
         private final TextView heightLabel;
         private final TextView height;
         private final TextView weightLabel;
@@ -226,6 +258,7 @@ public final class NearbyListView extends LinearLayout {
             bearing = view.findViewById(R.id.entity_bearing);
             distance = view.findViewById(R.id.entity_distance);
             fight = view.findViewById(R.id.entity_fight);
+            gender = view.findViewById(R.id.entity_gender);
             heightLabel = view.findViewById(R.id.entity_height_label);
             height = view.findViewById(R.id.entity_height);
             weightLabel = view.findViewById(R.id.entity_weight_label);
@@ -254,10 +287,11 @@ public final class NearbyListView extends LinearLayout {
                 level.setVisibility(GONE);
             }
             bindBadges(entity, alerts);
+            bindGender(entity);
             if (entity.fighting) {
                 bearing.setVisibility(GONE);
                 distance.setVisibility(GONE);
-                fight.setText(R.string.nearby_fighting);
+                fight.setText(fightLabel(entity.battlestate));
                 fight.setVisibility(VISIBLE);
             } else {
                 fight.setVisibility(GONE);
@@ -281,7 +315,7 @@ public final class NearbyListView extends LinearLayout {
                     || entity.voice <= NearbyEntity.VOICE_LOW));
             if (entity.fighting) {
                 root.setBackgroundResource(R.drawable.bg_entity_fight);
-            } else if (entity.badges.contains(BADGE_POLLUTION_KEY)) {
+            } else if (entity.hasBadge(Badge.Kind.POLLUTION)) {
                 root.setBackgroundResource(R.drawable.bg_entity_pollution);
             } else if (!entity.badges.isEmpty()) {
                 root.setBackgroundResource(R.drawable.bg_entity_special);
@@ -292,22 +326,23 @@ public final class NearbyListView extends LinearLayout {
         }
 
         private void bindBadges(NearbyEntity entity, @Nullable Collection<String> alerts) {
-            List<String> badges = entity.badges;
+            List<Badge> badges = entity.badges;
             int shown = 0;
             if (badges != null) {
                 for (int i = 0; i < badges.size(); i++) {
-                    CharSequence text = badgeLabel(badges.get(i));
+                    Badge badge = badges.get(i);
+                    CharSequence text = badgeLabel(badge);
                     if (text.length() == 0) {
                         continue;
                     }
                     TextView chip = chipAt(shown);
                     chip.setText(text);
-                    chip.setBackgroundResource(isPollutionBadge(badges.get(i))
+                    chip.setBackgroundResource(badge.kind == Badge.Kind.POLLUTION
                             ? R.drawable.badge_pollution : R.drawable.badge);
                     chip.setVisibility(VISIBLE);
                     if (alerts != null) {
                         String alert = NearbyAlertNotification.announceBadge(
-                                getContext(), entity, badges.get(i));
+                                getContext(), entity, badge);
                         if (alert != null) {
                             alerts.add(alert);
                         }
@@ -339,56 +374,66 @@ public final class NearbyListView extends LinearLayout {
             }
         }
 
-        private boolean isPollutionBadge(@Nullable String key) {
-            return key != null && BADGE_POLLUTION_KEY.equals(key.trim());
+        private void bindGender(NearbyEntity entity) {
+            boolean visible;
+            if (entity.gender == NearbyEntity.GENDER_MALE) {
+                gender.setImageResource(R.drawable.male);
+                visible = true;
+            } else if (entity.gender == NearbyEntity.GENDER_FEMALE) {
+                gender.setImageResource(R.drawable.female);
+                visible = true;
+            } else {
+                visible = false;
+            }
+            gender.setVisibility(visible ? VISIBLE : GONE);
+            ViewGroup.LayoutParams params = level.getLayoutParams();
+            if (params instanceof LinearLayout.LayoutParams) {
+                LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) params;
+                int target = visible ? dp(4) : dp(6);
+                if (lp.leftMargin != target) {
+                    lp.leftMargin = target;
+                    level.setLayoutParams(lp);
+                }
+            }
         }
 
-        private CharSequence badgeLabel(@Nullable String key) {
-            CharSequence trimmedKey = trimmed(key);
-            if (trimmedKey.length() == 0) {
-                return "";
-            }
-            String keyText = trimmedKey.toString();
-            if (keyText.startsWith(NATURE_PREFIX)) {
-                return natureLabel(keyText.substring(NATURE_PREFIX.length()),
-                        natureExpanded);
-            }
-            int label;
-            switch (keyText) {
-                case "colorful":
-                    label = R.string.badge_colorful;
-                    break;
-                case "shiny":
-                    label = R.string.badge_shiny;
-                    break;
-                case "pollution":
-                    label = R.string.badge_pollution;
-                    break;
-                case "big":
-                    label = R.string.badge_big;
-                    break;
-                case "small":
-                    label = R.string.badge_small;
-                    break;
-                case "high":
-                    label = R.string.badge_high;
-                    break;
-                case "low":
-                    label = R.string.badge_low;
-                    break;
+        private CharSequence badgeLabel(Badge badge) {
+            switch (badge.kind) {
+                case NATURE:
+                    return natureLabel(badge.value, natureExpanded);
+                case BLOODLINE:
+                    return bloodlineLabel(badge.value);
+                case COLORFUL:
+                    return getContext().getString(R.string.badge_colorful);
+                case SHINY:
+                    return getContext().getString(R.string.badge_shiny);
+                case POLLUTION:
+                    return getContext().getString(R.string.badge_pollution);
+                case STRANGE:
+                    return getContext().getString(R.string.badge_strange);
+                case BIG:
+                    return getContext().getString(R.string.badge_big);
+                case SMALL:
+                    return getContext().getString(R.string.badge_small);
+                case HIGH:
+                    return getContext().getString(R.string.badge_high);
+                case LOW:
+                    return getContext().getString(R.string.badge_low);
                 default:
-                    return trimmedKey;
+                    return "";
             }
-            return getContext().getString(label);
         }
 
-        private CharSequence natureLabel(String idText, boolean withEffect) {
-            int id;
-            try {
-                id = Integer.parseInt(idText);
-            } catch (NumberFormatException e) {
+        private CharSequence bloodlineLabel(int id) {
+            String[] names = getResources().getStringArray(R.array.bloodline);
+            int index = id - 1;
+            if (index < 0 || index >= names.length) {
                 return "";
             }
+            return names[index].trim();
+        }
+
+        private CharSequence natureLabel(int id, boolean withEffect) {
             String[] names = getResources().getStringArray(R.array.nature);
             String[] effects = getResources().getStringArray(R.array.nature_effect);
             int index = id - 1;

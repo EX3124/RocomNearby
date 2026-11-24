@@ -30,11 +30,15 @@
     <string name="map_paint_clear">Clear</string>
 
     <string name="nearby_count">%1$d jini nearby</string>
-    <string name="nearby_level" translatable="false">Lv.%1$d</string>
+    <string name="nearby_level">Lv.%1$d</string>
     <string name="nearby_height_label">Height</string>
     <string name="nearby_weight_label">Weight</string>
     <string name="nearby_voice_label">Voice</string>
-    <string name="nearby_fighting">In battle</string>
+
+    <string name="fight_fighting">In battle</string>
+    <string name="fight_preparation">In preparation</string>
+    <string name="fight_substitute">Substitute</string>
+    <string name="fight_dizziness">Dizziness</string>
 
     <string name="overlay_button">Float window</string>
     <string name="overlay_empty">Display during battle</string>
@@ -48,10 +52,11 @@
     <string name="dialog_install">Install</string>
     <string name="dialog_cancel">Cancel</string>
 
-    <string name="badge_nature_format">%1$s (%2$s)</string>
+    <string name="badge_nature_format" translatable="false">%1$s (%2$s)</string>
     <string name="badge_colorful">Prismatic</string>
     <string name="badge_shiny">Chromatic</string>
     <string name="badge_pollution">Corrupted</string>
+    <string name="badge_strange">Exotic</string>
     <string name="badge_big">Big One</string>
     <string name="badge_small">Teeny</string>
     <string name="badge_high">Melodious</string>

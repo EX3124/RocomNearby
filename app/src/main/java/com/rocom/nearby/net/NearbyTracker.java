@@ -1,5 +1,6 @@
 package com.rocom.nearby.net;
 
+import com.rocom.nearby.entity.Badge;
 import com.rocom.nearby.entity.NearbyEntity;
 
 import java.util.ArrayList;
@@ -22,14 +23,11 @@ final class NearbyTracker {
     static final int SELF_TOKEN_VOTES = 4;
     static final double MAX_DISTANCE_M = 120;
     static final long MAX_AGE_MS = 90000L;
-    static final String BADGE_COLORFUL = "colorful";
-    static final String BADGE_SHINY = "shiny";
-    static final String BADGE_POLLUTION = "pollution";
-    static final String BADGE_HIGH = "high";
-    static final String BADGE_LOW = "low";
-    static final String BADGE_NATURE_PREFIX = "nature:";
-    static final String BADGE_BIG = "big";
-    static final String BADGE_SMALL = "small";
+    private static final long BLOODLINE_NIGHTMARE = 23L;
+    private static final long BLOODLINE_STRANGE = 24L;
+    private static final long VARIANT_COLOUR = 1L;
+    private static final long VARIANT_WILD_BLIGHT = 4L;
+    private static final long VARIANT_DRAGON_BLIGHT = 32L;
     static final long CAUGHT_SUPPRESS_MS = 600000L;
     static final long CAUGHT_SWEEP_MS = 60000L;
     private static final int MIN_CFG_ID = EntityParser.MIN_CFG_ID;
@@ -143,15 +141,6 @@ final class NearbyTracker {
         if (fighting != null) {
             fightingEntries.add(fighting);
         }
-        for (int i = 1; i < enemies.size(); i++) {
-            Entry other = matchByFingerprint(enemies.get(i));
-            if (enemy != null) {
-                fightingKeys.add(other == null ? null : other.key);
-            }
-            if (other != null && !fightingEntries.contains(other)) {
-                fightingEntries.add(other);
-            }
-        }
         boolean hasSelf = Double.isFinite(selfX) && Double.isFinite(selfY);
         List<Entry> visible = new ArrayList<>();
         for (Entry entry : byId.values()) {
@@ -176,8 +165,7 @@ final class NearbyTracker {
             List<NearbyEntity> cards = new ArrayList<>(enemies.size());
             for (int i = 0; i < enemies.size(); i++) {
                 BattleUnit unit = enemies.get(i);
-                Entry other = i == 0 ? fighting : matchByFingerprint(unit);
-                cards.add(toBattleEntity(unit, other == null ? null : other.record));
+                cards.add(toBattleEntity(unit));
             }
             out.addAll(0, cards);
             while (out.size() > MAX_CARDS) {
@@ -219,7 +207,7 @@ final class NearbyTracker {
                 return entry;
             }
         }
-        return index == 0 ? findBattleEntry(unit) : matchByFingerprint(unit);
+        return index == 0 ? findBattleEntry(unit) : null;
     }
 
     private void drop(Entry entry, long now, boolean ban) {
@@ -336,40 +324,56 @@ final class NearbyTracker {
         return changed;
     }
     
-    private NearbyEntity toBattleEntity(BattleUnit unit, EntityRecord match) {
+    private NearbyEntity toBattleEntity(BattleUnit unit) {
         String name = null;
-        if (match != null && match.cfgId > 0 && match.cfgId <= Integer.MAX_VALUE) {
-            name = SpeciesNames.known(match.cfgId);
-        }
-        if (name == null && unit.speciesId > 0 && unit.speciesId <= Integer.MAX_VALUE) {
+        if (unit.speciesId > 0 && unit.speciesId <= Integer.MAX_VALUE) {
             name = SpeciesNames.known(unit.speciesId);
         }
         if (name == null) {
-            long shownId = match != null && match.cfgId > 0 ? match.cfgId : unit.speciesId;
-            name = SpeciesNames.name(shownId);
+            name = SpeciesNames.name(unit.speciesId);
         }
-        return new NearbyEntity(name, (int) unit.level, battleBadges(unit, match),
+        return new NearbyEntity(name, (int) unit.level, battleBadges(unit),
                 unit.heightMeters(), unit.weightKg(), unit.voice,
                 SpeciesSizes.heightPercentileForSpecies(unit.speciesId, unit.height),
                 SpeciesSizes.weightPercentileForSpecies(unit.speciesId, unit.weight),
-                Double.NaN, Double.NaN, true);
+                Double.NaN, Double.NaN, true, unit.gender,
+                unit.battlestate);
     }
 
-    private static void addNatureBadge(List<String> out, long nature) {
-        if (nature > 0) {
-            out.add(BADGE_NATURE_PREFIX + nature);
-        }
+    private static void addNatureBadge(List<Badge> out, long nature) {
+        addBadge(out, Badge.nature(nature));
     }
 
-    private List<String> battleBadges(BattleUnit unit, EntityRecord match) {
-        List<String> out = new ArrayList<>(5);
+    private List<Badge> battleBadges(BattleUnit unit) {
+        List<Badge> out = new ArrayList<>(6);
         addNatureBadge(out, unit.nature);
-        if (match != null) {
-            out.addAll(mutationBadges(match.mutation, match.glassType));
+        if (unit.bloodLine == BLOODLINE_NIGHTMARE && isBlightVariant(unit.variant)) {
+            addBadge(out, Badge.of(Badge.Kind.POLLUTION));
         }
+        if (unit.bloodLine == BLOODLINE_STRANGE) {
+            addBadge(out, Badge.of(Badge.Kind.STRANGE));
+        }
+        if (unit.variant == VARIANT_COLOUR) {
+            addBadge(out, Badge.of(Badge.Kind.COLORFUL));
+        }
+        addBloodlineBadge(out, unit.bloodLine);
         addSizeBadge(out, SpeciesSizes.weightPercentileForSpecies(unit.speciesId, unit.weight));
         addVoiceBadge(out, unit.voice);
         return out;
+    }
+
+    private static boolean isBlightVariant(long variant) {
+        return variant == VARIANT_WILD_BLIGHT || variant == VARIANT_DRAGON_BLIGHT;
+    }
+
+    private static void addBloodlineBadge(List<Badge> out, long bloodline) {
+        addBadge(out, Badge.bloodline(bloodline));
+    }
+
+    private static void addBadge(List<Badge> out, Badge badge) {
+        if (badge != null && !out.contains(badge)) {
+            out.add(badge);
+        }
     }
 
     private Entry findBattleEntry(BattleUnit unit) {
@@ -398,26 +402,7 @@ final class NearbyTracker {
                 }
             }
         }
-        return matchByFingerprint(unit);
-    }
-
-    private Entry matchByFingerprint(BattleUnit unit) {
-        Entry best = null;
-        long bestSeen = Long.MIN_VALUE;
-        for (Entry entry : byId.values()) {
-            EntityRecord candidate = entry.record;
-            if (candidate.height != unit.height || candidate.weight != unit.weight) {
-                continue;
-            }
-            if (!candidate.hasVoice() || candidate.voice != unit.voice) {
-                continue;
-            }
-            if (entry.seenAt > bestSeen) {
-                bestSeen = entry.seenAt;
-                best = entry;
-            }
-        }
-        return best;
+        return null;
     }
 
     private Comparator<Entry> order(final boolean hasSelf) {
@@ -450,46 +435,46 @@ final class NearbyTracker {
                 record.hasVoice() ? record.voice : NearbyEntity.UNKNOWN,
                 SpeciesSizes.heightPercentileForForm(record.cfgId, record.height),
                 SpeciesSizes.weightPercentileForForm(record.cfgId, record.weight),
-                record.x, record.y, false);
+                record.x, record.y, false, 0L, 0L);
     }
 
-    static List<String> badges(EntityRecord record) {
-        List<String> out = mutationBadges(record.mutation, record.glassType);
+    static List<Badge> badges(EntityRecord record) {
+        List<Badge> out = mutationBadges(record.mutation, record.glassType);
         addSizeBadge(out, SpeciesSizes.weightPercentileForForm(record.cfgId, record.weight));
         addVoiceBadge(out, record.hasVoice() ? record.voice : 0L);
         return out;
     }
 
-    private static List<String> mutationBadges(long mutation, long glassType) {
-        List<String> out = new ArrayList<>(3);
+    private static List<Badge> mutationBadges(long mutation, long glassType) {
+        List<Badge> out = new ArrayList<>(3);
         if (glassType != 0 || (mutation & 8L) != 0) {
-            out.add(BADGE_COLORFUL);
+            out.add(Badge.of(Badge.Kind.COLORFUL));
         }
         if ((mutation & 1L) != 0) {
-            out.add(BADGE_SHINY);
+            out.add(Badge.of(Badge.Kind.SHINY));
         }
         if ((mutation & 166L) != 0) {
-            out.add(BADGE_POLLUTION);
+            out.add(Badge.of(Badge.Kind.POLLUTION));
         }
         return out;
     }
 
-    private static void addVoiceBadge(List<String> out, long voice) {
+    private static void addVoiceBadge(List<Badge> out, long voice) {
         if (voice >= NearbyEntity.VOICE_HIGH) {
-            out.add(BADGE_HIGH);
+            out.add(Badge.of(Badge.Kind.HIGH));
         } else if (voice <= NearbyEntity.VOICE_LOW) {
-            out.add(BADGE_LOW);
+            out.add(Badge.of(Badge.Kind.LOW));
         }
     }
 
-    static void addSizeBadge(List<String> out, double percentile) {
+    static void addSizeBadge(List<Badge> out, double percentile) {
         if (!Double.isFinite(percentile)) {
             return;
         }
         if (percentile >= SpeciesSizes.BIG_PERCENTILE) {
-            out.add(BADGE_BIG);
+            out.add(Badge.of(Badge.Kind.BIG));
         } else if (percentile <= SpeciesSizes.SMALL_PERCENTILE) {
-            out.add(BADGE_SMALL);
+            out.add(Badge.of(Badge.Kind.SMALL));
         }
     }
 

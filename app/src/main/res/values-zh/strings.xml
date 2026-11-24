@@ -25,10 +25,15 @@
     <string name="map_paint_clear">清空</string>
 
     <string name="nearby_count">共 %1$d 只</string>
+    <string name="nearby_level">%1$d级</string>
     <string name="nearby_height_label">身高</string>
     <string name="nearby_weight_label">体重</string>
     <string name="nearby_voice_label">声音</string>
-    <string name="nearby_fighting">战斗中</string>
+
+    <string name="fight_fighting">战斗中</string>
+    <string name="fight_preparation">准备战斗</string>
+    <string name="fight_substitute">替补</string>
+    <string name="fight_dizziness">眩晕</string>
 
     <string name="overlay_button">悬浮窗</string>
     <string name="overlay_empty">进入战斗后显示</string>
@@ -42,10 +47,10 @@
     <string name="dialog_install">去安装</string>
     <string name="dialog_cancel">取消</string>
 
-    <string name="badge_nature_format">%1$s (%2$s)</string>
     <string name="badge_colorful">炫彩</string>
     <string name="badge_shiny">异色</string>
     <string name="badge_pollution">污染</string>
+    <string name="badge_strange">奇异</string>
     <string name="badge_big">大块头</string>
     <string name="badge_small">小不点</string>
     <string name="badge_high">婉转声</string>

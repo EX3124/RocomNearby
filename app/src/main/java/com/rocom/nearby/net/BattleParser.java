@@ -12,11 +12,16 @@ final class BattleParser {
     private static final int FIELD_CONF_ID = 2;
     private static final int FIELD_NATURE = 7;
     private static final int FIELD_LEVEL = 10;
-    private static final int FIELD_GENDER = 5;
     private static final int FIELD_SPECIES = 15;
     private static final int FIELD_HEIGHT = 26;
     private static final int FIELD_WEIGHT = 27;
     private static final int FIELD_VOICE = 93;
+    private static final int FIELD_VARIANT = 45;
+    private static final int FIELD_BLOODLINE = 47;
+    private static final int FIELD_GENDER = 8;
+    private static final int FIELD_BATTLESTATE = 24;
+    private static final int FIELD_BATTLEORDER = 25;
+    private static final int FIELD_SLOT_INFO = 1;
     private static final int FIELD_KILL_MARKER = 4;
     private static final int FIELD_PET_SPECIES = 12;
     private static final long MIN_HEIGHT_CM = 10L;
@@ -264,7 +269,7 @@ final class BattleParser {
             }
             BattleUnit parsed = accept(ProtoScan.scan(plain, unit.valueStart, unit.valueEnd));
             if (parsed != null && !holds(out, parsed.key())) {
-                out.add(parsed);
+                out.add(withSlot(parsed, plain, slot));
             }
         }
         return out;
@@ -316,8 +321,10 @@ final class BattleParser {
         }
         return new BattleUnit(value(fields, FIELD_GID), species.varint,
                 value(fields, FIELD_CONF_ID), value(fields, FIELD_LEVEL),
-                value(fields, FIELD_GENDER), height.varint, weight.varint,
-                voice.varint, value(fields, FIELD_NATURE));
+                height.varint, weight.varint,
+                voice.varint, value(fields, FIELD_NATURE),
+                value(fields, FIELD_VARIANT), value(fields, FIELD_BLOODLINE),
+                value(fields, FIELD_GENDER), 0L, 0L);
     }
 
     static long parseSnapshotToken(byte[] plain) {
@@ -411,6 +418,21 @@ final class BattleParser {
                 collectCaptured(buf, field, depth + 1, out);
             }
         }
+    }
+
+    private static BattleUnit withSlot(BattleUnit unit, byte[] plain, ProtoScan.Field slot) {
+        List<ProtoScan.Field> kids = ProtoScan.scan(plain, slot.valueStart, slot.valueEnd);
+        ProtoScan.Field info = ProtoScan.first(kids, FIELD_SLOT_INFO, ProtoScan.WIRE_LENGTH);
+        long battlestate = 0L;
+        long battleorder = 0L;
+        if (info != null) {
+            List<ProtoScan.Field> inner = ProtoScan.scan(plain, info.valueStart, info.valueEnd);
+            battlestate = value(inner, FIELD_BATTLESTATE);
+            battleorder = value(inner, FIELD_BATTLEORDER);
+        }
+        return new BattleUnit(unit.gid, unit.speciesId, unit.confId, unit.level,
+                unit.height, unit.weight, unit.voice, unit.nature, unit.variant, unit.bloodLine,
+                unit.gender, battlestate, battleorder);
     }
 
     private static long[] fingerprint(List<ProtoScan.Field> fields) {

@@ -15,6 +15,7 @@ import androidx.core.app.NotificationManagerCompat;
 
 import com.rocom.nearby.MainActivity;
 import com.rocom.nearby.R;
+import com.rocom.nearby.entity.Badge;
 import com.rocom.nearby.entity.NearbyEntity;
 
 import java.util.ArrayDeque;
@@ -27,8 +28,6 @@ public final class NearbyAlertNotification {
 
     private static final String TAG = "NearbyAlert";
     public static final String CHANNEL_ID = "nearby_special";
-    private static final String BADGE_COLORFUL = "colorful";
-    private static final String BADGE_SHINY = "shiny";
     private static final int SLOT_BASE = 0x2100;
     private static final int SLOT_COUNT = 0x400;
     private static final int SLOT_LIMIT = SLOT_BASE + SLOT_COUNT;
@@ -54,12 +53,12 @@ public final class NearbyAlertNotification {
 
     @Nullable
     public static String announceBadge(Context context, @Nullable NearbyEntity entity,
-                                       @Nullable String badgeKey) {
+                                       @Nullable Badge badge) {
         if (context == null || entity == null) {
             return null;
         }
-        String badge = alertBadge(badgeKey);
-        if (badge == null || entity.fighting
+        int label = alertLabel(badge);
+        if (label == 0 || entity.fighting
                 || !Double.isFinite(entity.worldX) || !Double.isFinite(entity.worldY)) {
             return null;
         }
@@ -70,7 +69,7 @@ public final class NearbyAlertNotification {
             }
             int id = allocateSlot(context);
             ACTIVE.put(key, id);
-            post(context, entity, id, badgeLabel(badge));
+            post(context, entity, id, label);
         }
         return key;
     }
@@ -111,23 +110,17 @@ public final class NearbyAlertNotification {
         return entity.identityKey();
     }
 
-    @Nullable
-    private static String alertBadge(@Nullable String badgeKey) {
-        if (badgeKey == null) {
-            return null;
+    private static int alertLabel(@Nullable Badge badge) {
+        if (badge == null) {
+            return 0;
         }
-        String key = badgeKey.trim();
-        if (BADGE_COLORFUL.equals(key)) {
-            return BADGE_COLORFUL;
+        if (badge.kind == Badge.Kind.COLORFUL) {
+            return R.string.badge_colorful;
         }
-        if (BADGE_SHINY.equals(key)) {
-            return BADGE_SHINY;
+        if (badge.kind == Badge.Kind.SHINY) {
+            return R.string.badge_shiny;
         }
-        return null;
-    }
-
-    private static int badgeLabel(String badge) {
-        return BADGE_COLORFUL.equals(badge) ? R.string.badge_colorful : R.string.badge_shiny;
+        return 0;
     }
 
     private static int allocateSlot(Context context) {

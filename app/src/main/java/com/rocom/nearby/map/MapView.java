@@ -19,6 +19,7 @@ import android.view.ViewOutlineProvider;
 import androidx.annotation.Nullable;
 
 import com.rocom.nearby.R;
+import com.rocom.nearby.entity.Badge;
 import com.rocom.nearby.entity.NearbyEntity;
 
 import java.io.ByteArrayOutputStream;
@@ -53,7 +54,6 @@ public class MapView extends View {
     private static final float PLAYER_DOT_RADIUS_DP = 5f;
     private static final float ENTITY_GLOW_PAD_DP = 1.5f;
     private static final float PLAYER_GLOW_PAD_DP = 2f;
-    private static final String POLLUTION_BADGE_KEY = "pollution";
     private final Paint bitmapPaint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint edgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -856,7 +856,7 @@ public class MapView extends View {
     }
 
     private int entityColor(NearbyEntity entity) {
-        if (entity.badges.contains(POLLUTION_BADGE_KEY)) {
+        if (entity.hasBadge(Badge.Kind.POLLUTION)) {
             return entityPollutionColor;
         }
         if (!entity.badges.isEmpty()) {

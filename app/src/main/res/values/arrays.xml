@@ -77,6 +77,28 @@
         <item>+HP -SPD</item>
     </string-array>
 
+    <string-array name="bloodline">
+        <item>Common</item>
+        <item>Flora</item>
+        <item>Fire</item>
+        <item>Water</item>
+        <item>Light</item>
+        <item>Earth</item>
+        <item>Ice</item>
+        <item>Dragon</item>
+        <item>Electro</item>
+        <item>Poison</item>
+        <item>Bug</item>
+        <item>Fighting</item>
+        <item>Wing</item>
+        <item>Charm</item>
+        <item>Shadow</item>
+        <item>Havoc</item>
+        <item>Mech</item>
+        <item>Stellar</item>
+        <item>Alpha</item>
+    </string-array>
+
     <integer-array name="cfgId">
         <item>3</item>
         <item>10009</item>
@@ -3943,9 +3965,9 @@
         <item>0</item>
         <item>0</item>
         <item>0</item>
-        <item>0</item>
-        <item>0</item>
-        <item>0</item>
+        <item>10842</item>
+        <item>10843</item>
+        <item>10844</item>
         <item>0</item>
         <item>0</item>
         <item>0</item>

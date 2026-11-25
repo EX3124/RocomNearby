@@ -12,6 +12,7 @@ import java.util.Set;
 final class BattleTracker {
 
     static final long STALE_MS = 120000L;
+    static final int MAX_ON_FIELD = 2;
     private static final int[] UNIT_OPCODES = {4886, 4890};
     private static final int[] END_OPCODES = {4908, 4922};
     private static final int[] ACTIVITY_OPCODES = {579, 4900, 4898, 4876, 4870, 4884};
@@ -50,9 +51,7 @@ final class BattleTracker {
     }
 
     static boolean handles(int opcode) {
-        return contains(UNIT_OPCODES, opcode)
-                || contains(END_OPCODES, opcode)
-                || contains(ACTIVITY_OPCODES, opcode);
+        return contains(UNIT_OPCODES, opcode) || contains(END_OPCODES, opcode) || contains(ACTIVITY_OPCODES, opcode);
     }
 
     static boolean carriesUnits(int opcode) {
@@ -69,53 +68,43 @@ final class BattleTracker {
                 }
                 return accept(group, now);
             }
-            if (!enemyTeams.isEmpty()) {
+            if (!enemyTeams.isEmpty())
                 return false;
-            }
             List<BattleUnit> units = BattleParser.parse(plain);
-            if (units.isEmpty()) {
+            if (units.isEmpty())
                 return false;
-            }
             return acceptSingle(units.get(units.size() - 1), now);
         }
         if (contains(END_OPCODES, opcode)) {
-            if (opcode == 4908) {
+            if (opcode == 4908)
                 result = BattleParser.parseResult(plain);
-            }
             return end();
         }
-        if (contains(ACTIVITY_OPCODES, opcode)) {
+        if (contains(ACTIVITY_OPCODES, opcode))
             touch(now);
-        }
         return false;
     }
 
     void expireIfStale(long now) {
-        if (!enemies.isEmpty() && now - updatedAt > STALE_MS) {
+        if (!enemies.isEmpty() && now - updatedAt > STALE_MS)
             reset();
-        }
     }
-    
+
     List<BattleUnit> enemies() {
         return enemies;
     }
 
-    static final int MAX_ON_FIELD = 2;
-
     int onField() {
-        if (onField > 0) {
+        if (onField > 0)
             return Math.min(onField, enemies.size());
-        }
         return Math.min(enemies.size(), MAX_ON_FIELD);
     }
 
     private boolean accept(BattleParser.EnemyGroup group, long now) {
         List<BattleUnit> next = order(group.units);
-        if (group.onField > 0) {
+        if (group.onField > 0)
             onField = group.onField;
-        }
-        boolean changed = !keys(enemies).equals(keys(next))
-                || !signatures(enemies).equals(signatures(next));
+        boolean changed = !keys(enemies).equals(keys(next)) || !signatures(enemies).equals(signatures(next));
         enemies = next;
         lastEnemies = next;
         updatedAt = now;
@@ -123,11 +112,7 @@ final class BattleTracker {
     }
 
     private boolean acceptSingle(BattleUnit unit, long now) {
-        boolean changed = enemies.size() != 1 || !enemies.get(0).key().equals(unit.key())
-                || enemies.get(0).bloodLine != unit.bloodLine || enemies.get(0).variant != unit.variant
-                || enemies.get(0).gender != unit.gender
-                || enemies.get(0).battlestate != unit.battlestate
-                || enemies.get(0).battleorder != unit.battleorder;
+        boolean changed = enemies.size() != 1 || !enemies.get(0).key().equals(unit.key()) || enemies.get(0).bloodLine != unit.bloodLine || enemies.get(0).variant != unit.variant || enemies.get(0).gender != unit.gender || enemies.get(0).battlestate != unit.battlestate || enemies.get(0).battleorder != unit.battleorder;
         List<BattleUnit> next = new ArrayList<>(1);
         next.add(unit);
         enemies = next;
@@ -139,9 +124,8 @@ final class BattleTracker {
 
     private static List<String> keys(List<BattleUnit> units) {
         List<String> out = new ArrayList<>(units.size());
-        for (int i = 0; i < units.size(); i++) {
+        for (int i = 0; i < units.size(); i++)
             out.add(units.get(i).key());
-        }
         return out;
     }
 
@@ -149,17 +133,15 @@ final class BattleTracker {
         List<String> out = new ArrayList<>(units.size());
         for (int i = 0; i < units.size(); i++) {
             BattleUnit unit = units.get(i);
-            out.add(unit.bloodLine + ":" + unit.variant + ":" + unit.gender + ":" + unit.battlestate
-                    + ":" + unit.battleorder);
+            out.add(unit.bloodLine + ":" + unit.variant + ":" + unit.gender + ":" + unit.battlestate + ":" + unit.battleorder);
         }
         return out;
     }
 
     private List<BattleUnit> order(List<BattleUnit> units) {
         trackSlots(units);
-        if (units.size() < 2 || !isMultiBattle(units)) {
+        if (units.size() < 2 || !isMultiBattle(units))
             return units;
-        }
         List<BattleUnit> sorted = new ArrayList<>(units);
         Collections.sort(sorted, battleOrder());
         return sorted;
@@ -167,18 +149,16 @@ final class BattleTracker {
 
     private static boolean isMultiBattle(List<BattleUnit> units) {
         for (int i = 0; i < units.size(); i++) {
-            if (units.get(i).battleorder != 0L) {
+            if (units.get(i).battleorder != 0L)
                 return true;
-            }
         }
         return false;
     }
 
     private static boolean isPreparation(List<BattleUnit> units) {
         for (int i = 0; i < units.size(); i++) {
-            if (units.get(i).battlestate == BATTLE_PREPARATION_MULTI) {
+            if (units.get(i).battlestate == BATTLE_PREPARATION_MULTI)
                 return true;
-            }
         }
         return false;
     }
@@ -191,16 +171,13 @@ final class BattleTracker {
         for (int i = 0; i < units.size(); i++) {
             BattleUnit unit = units.get(i);
             long slot = unit.battleorder;
-            if (slot == 0L) {
+            if (slot == 0L)
                 continue;
-            }
             Long previous = lastStateBySlot.get(slot);
-            if (previous != null && previous == BATTLE_FIGHTING_MULTI_FIELD
-                    && unit.battlestate == BATTLE_FIGHTING_MULTI_BENCH) {
+            if (previous != null && previous == BATTLE_FIGHTING_MULTI_FIELD && unit.battlestate == BATTLE_FIGHTING_MULTI_BENCH)
                 revertedAt.put(slot, ++revertCount);
-            } else if (unit.battlestate == BATTLE_FIGHTING_MULTI_FIELD) {
+            else if (unit.battlestate == BATTLE_FIGHTING_MULTI_FIELD)
                 revertedAt.remove(slot);
-            }
             lastStateBySlot.put(slot, unit.battlestate);
         }
     }
@@ -210,32 +187,26 @@ final class BattleTracker {
             int rankLeft = rank(left);
             int rankRight = rank(right);
             int byRank = Integer.compare(rankLeft, rankRight);
-            if (byRank != 0) {
+            if (byRank != 0)
                 return byRank;
-            }
             if (rankLeft == RANK_REVERTED) {
                 int byStamp = Long.compare(stampOf(left), stampOf(right));
-                if (byStamp != 0) {
+                if (byStamp != 0)
                     return byStamp;
-                }
             }
-            int bySlot = Integer.compare((int) (left.battleorder % 10L),
-                    (int) (right.battleorder % 10L));
-            if (bySlot != 0) {
+            int bySlot = Integer.compare((int) (left.battleorder % 10L), (int) (right.battleorder % 10L));
+            if (bySlot != 0)
                 return bySlot;
-            }
             return Long.compare(left.battleorder / 10L, right.battleorder / 10L);
         };
     }
 
     private int rank(BattleUnit unit) {
         long state = unit.battlestate;
-        if (state == BATTLE_FIGHTING_MULTI_FIELD) {
+        if (state == BATTLE_FIGHTING_MULTI_FIELD)
             return RANK_FIELD;
-        }
-        if (state == BATTLE_FIGHTING_MULTI_BENCH) {
+        if (state == BATTLE_FIGHTING_MULTI_BENCH)
             return revertedAt.containsKey(unit.battleorder) ? RANK_REVERTED : RANK_BENCH;
-        }
         return RANK_PREPARE;
     }
 
@@ -245,9 +216,8 @@ final class BattleTracker {
     }
 
     private boolean end() {
-        if (enemies.isEmpty()) {
+        if (enemies.isEmpty())
             return false;
-        }
         lastEnemies = enemies;
         lastOnField = onField();
         clearFrame();
@@ -272,17 +242,15 @@ final class BattleTracker {
     }
 
     private void touch(long now) {
-        if (enemies.isEmpty()) {
+        if (enemies.isEmpty())
             return;
-        }
         updatedAt = now;
     }
 
     private static boolean contains(int[] table, int value) {
         for (int i = 0; i < table.length; i++) {
-            if (table[i] == value) {
+            if (table[i] == value)
                 return true;
-            }
         }
         return false;
     }

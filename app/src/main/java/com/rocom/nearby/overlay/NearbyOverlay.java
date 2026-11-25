@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Point;
 import android.hardware.display.DisplayManager;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.MotionEvent;
@@ -31,16 +32,13 @@ public final class NearbyOverlay {
     private static boolean requesting;
     private static final String PREFS = "nearby";
     private static final String KEY_OPACITY = "opacity";
-    private static final int MAX_OPACITY_PROGRESS = 100;
-    private static final float MIN_ALPHA = 0.25f;
     private static final int CARD_WIDTH_DP = 264;
     private static final int VISIBLE_ROWS = 2;
     private static final int BOTTOM_INSET_DP = 12;
     private static WeakReference<View> floatView = new WeakReference<>(null);
     private static boolean hadCards;
     private static int visibleRows;
-    private static final NearbyRuntime.Listener SNAPSHOT_LISTENER =
-            NearbyOverlay::renderSnapshot;
+    private static final NearbyRuntime.Listener SNAPSHOT_LISTENER = NearbyOverlay::renderSnapshot;
     private static DisplayManager displayManager;
     private static DisplayManager.DisplayListener displaySizeListener;
 
@@ -49,9 +47,7 @@ public final class NearbyOverlay {
     }
 
     public static void show(Activity activity) {
-        if (isShowing() || requesting) {
-            return;
-        }
+        if (isShowing() || requesting) return;
         View anchor = activity.findViewById(R.id.overlay_button);
         if (anchor != null && anchor.getWidth() <= 0) {
             anchor.post(() -> show(activity));
@@ -65,14 +61,12 @@ public final class NearbyOverlay {
         int startX = Math.max(0, screenWidth - windowWidth(activity));
         int startY = dp(activity, 2);
         View root = activity.findViewById(R.id.root);
-        if (root != null) {
+        if (root != null)
             statusBarInset = root.getPaddingTop();
-        }
         if (anchor != null) {
             anchor.getLocationOnScreen(anchorLocation);
             startX = Math.max(0, anchorLocation[0] + anchor.getWidth() - windowWidth(activity));
-            startY = anchorLocation[1] + anchor.getHeight()
-                    - statusBarInset + dp(activity, 2);
+            startY = anchorLocation[1] + anchor.getHeight() - statusBarInset + dp(activity, 2);
         }
         try {
             EasyFloat.with(activity)
@@ -109,12 +103,10 @@ public final class NearbyOverlay {
 
                         @Override
                         public void drag(@NonNull View view, @NonNull MotionEvent motionEvent) {
-
                         }
 
                         @Override
                         public void dragEnd(@NonNull View view) {
-
                         }
                     })
                     .show();
@@ -132,9 +124,8 @@ public final class NearbyOverlay {
     private static void bindView(Context appContext, View view) {
         detach();
         View close = view.findViewById(R.id.overlay_close);
-        if (close != null) {
+        if (close != null)
             close.setOnClickListener(clicked -> clicked.post(NearbyOverlay::dismiss));
-        }
         bindOpacity(appContext, view);
         NearbyListView cards = view.findViewById(R.id.overlay_cards);
         if (cards != null) {
@@ -143,9 +134,8 @@ public final class NearbyOverlay {
             cards.setBackground(null);
         }
         View scroller = view.findViewById(R.id.overlay_scroll);
-        if (scroller != null) {
+        if (scroller != null)
             scroller.setPadding(0, 0, 0, dp(appContext, BOTTOM_INSET_DP));
-        }
         bindResizeGrips(view);
         attach(view);
     }
@@ -155,13 +145,11 @@ public final class NearbyOverlay {
         OverlayResizeGrip.MinSize minSize = new OverlayResizeGrip.MinSize();
         minSize.capture(body);
         OverlayResizeGrip start = view.findViewById(R.id.overlay_resize_start);
-        if (start != null) {
+        if (start != null)
             start.bind(body, TAG, OverlayResizeGrip.CORNER_START, minSize);
-        }
         OverlayResizeGrip end = view.findViewById(R.id.overlay_resize_end);
-        if (end != null) {
+        if (end != null)
             end.bind(body, TAG, OverlayResizeGrip.CORNER_END, minSize);
-        }
     }
 
     private static View contentRoot(View view) {
@@ -171,20 +159,17 @@ public final class NearbyOverlay {
 
     private static void bindOpacity(Context appContext, View view) {
         SeekBar seek = view.findViewById(R.id.overlay_opacity_seek);
-        View icon = view.findViewById(R.id.overlay_opacity_icon);
-        if (seek == null) {
-            return;
-        }
+        if (seek == null) return;
         seek.setVisibility(View.GONE);
-        final SharedPreferences prefs =
-                appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        seek.setMax(MAX_OPACITY_PROGRESS);
-        seek.setProgress(clampProgress(prefs.getInt(KEY_OPACITY, MAX_OPACITY_PROGRESS)));
-        applyOpacity(view, seek.getProgress());
+        final SharedPreferences prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        if (Build.VERSION.SDK_INT > 26)
+            seek.setMin(5);
+        seek.setProgress(prefs.getInt(KEY_OPACITY, 100));
+        view.setAlpha((float) seek.getProgress() / 100);
         seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
-                applyOpacity(view, progress);
+                view.setAlpha(((float) progress / 100));
             }
 
             @Override
@@ -193,22 +178,12 @@ public final class NearbyOverlay {
 
             @Override
             public void onStopTrackingTouch(SeekBar bar) {
-                prefs.edit().putInt(KEY_OPACITY, clampProgress(bar.getProgress())).apply();
+                prefs.edit().putInt(KEY_OPACITY, bar.getProgress()).apply();
             }
         });
-        if (icon != null) {
-            icon.setOnClickListener(clicked -> seek.setVisibility(
-                    seek.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
-        }
-    }
-
-    private static void applyOpacity(View body, int progress) {
-        float ratio = clampProgress(progress) / (float) MAX_OPACITY_PROGRESS;
-        body.setAlpha(MIN_ALPHA + (1f - MIN_ALPHA) * ratio);
-    }
-
-    private static int clampProgress(int progress) {
-        return Math.max(0, Math.min(MAX_OPACITY_PROGRESS, progress));
+        View icon = view.findViewById(R.id.overlay_opacity_icon);
+        if (icon != null)
+            icon.setOnClickListener(clicked -> seek.setVisibility(seek.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
     }
 
     private static void attach(View view) {
@@ -228,13 +203,9 @@ public final class NearbyOverlay {
 
     private static void watchDisplaySize(View view) {
         unwatchDisplaySize();
-        Context host = view.getContext().getApplicationContext() != null
-                ? view.getContext().getApplicationContext()
-                : view.getContext();
+        Context host = view.getContext().getApplicationContext() != null ? view.getContext().getApplicationContext() : view.getContext();
         DisplayManager manager = (DisplayManager) host.getSystemService(Context.DISPLAY_SERVICE);
-        if (manager == null) {
-            return;
-        }
+        if (manager == null) return;
         DisplayManager.DisplayListener listener = new DisplayManager.DisplayListener() {
             @Override
             public void onDisplayAdded(int displayId) {
@@ -246,13 +217,10 @@ public final class NearbyOverlay {
 
             @Override
             public void onDisplayChanged(int displayId) {
-                if (displayId != android.view.Display.DEFAULT_DISPLAY) {
-                    return;
-                }
+                if (displayId != android.view.Display.DEFAULT_DISPLAY) return;
                 View current = floatView.get();
-                if (current != null) {
+                if (current != null)
                     current.post(() -> fitToScreen(current));
-                }
             }
         };
         manager.registerDisplayListener(listener, new Handler(Looper.getMainLooper()));
@@ -261,9 +229,7 @@ public final class NearbyOverlay {
     }
 
     private static void unwatchDisplaySize() {
-        if (displayManager == null || displaySizeListener == null) {
-            return;
-        }
+        if (displayManager == null || displaySizeListener == null) return;
         displayManager.unregisterDisplayListener(displaySizeListener);
         displayManager = null;
         displaySizeListener = null;
@@ -272,18 +238,14 @@ public final class NearbyOverlay {
     private static void fitToScreen(View view) {
         View body = contentRoot(view);
         ViewGroup.LayoutParams layout = body.getLayoutParams();
-        if (layout == null || layout.width <= 0 || layout.height <= 0) {
-            return;
-        }
+        if (layout == null || layout.width <= 0 || layout.height <= 0) return;
         WindowManager.LayoutParams params = OverlayResizeGrip.windowParamsOf(body);
         int x = params != null ? Math.max(0, params.x) : 0;
         int y = params != null ? Math.max(0, params.y) : 0;
         Point size = OverlayResizeGrip.resolveScreenSize(view.getContext());
         int maxWidth = Math.max(1, size.x - x);
         int maxHeight = Math.max(1, size.y - y);
-        if (layout.width <= maxWidth && layout.height <= maxHeight) {
-            return;
-        }
+        if (layout.width <= maxWidth && layout.height <= maxHeight) return;
         layout.width = Math.min(layout.width, maxWidth);
         layout.height = Math.min(layout.height, maxHeight);
         body.setLayoutParams(layout);
@@ -292,61 +254,46 @@ public final class NearbyOverlay {
 
     private static void renderSnapshot(NearbyRuntime.Snapshot snapshot) {
         View view = floatView.get();
-        if (view == null) {
-            return;
-        }
+        if (view == null) return;
         NearbyListView cards = view.findViewById(R.id.overlay_cards);
         ScrollView scroller = view.findViewById(R.id.overlay_scroll);
         View empty = view.findViewById(R.id.overlay_empty);
-        if (cards == null || scroller == null) {
-            return;
-        }
+        if (cards == null || scroller == null) return;
         cards.bind(snapshot.entities, Double.NaN, Double.NaN);
         boolean hasCards = cards.getVisibility() == View.VISIBLE;
-        if (empty != null) {
+        if (empty != null)
             empty.setVisibility(hasCards ? View.GONE : View.VISIBLE);
-        }
         scroller.setVisibility(hasCards ? View.VISIBLE : View.GONE);
         if (hasCards) {
-            if (!hadCards) {
+            if (!hadCards)
                 scroller.scrollTo(0, 0);
-            }
             fitCardsHeight(view, cards, scroller);
-        } else {
-            visibleRows = 0;
-        }
+        } else visibleRows = 0;
         hadCards = hasCards;
     }
 
     private static void fitCardsHeight(View view, NearbyListView cards, ScrollView scroller) {
         Context context = view.getContext();
-        int width = scroller.getWidth()
-                - scroller.getPaddingLeft() - scroller.getPaddingRight();
-        if (width <= 0) {
+        int width = scroller.getWidth() - scroller.getPaddingLeft() - scroller.getPaddingRight();
+        if (width <= 0)
             width = dp(context, CARD_WIDTH_DP);
-        }
-        cards.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        cards.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
         ViewGroup rows = cards.findViewById(R.id.nearby_rows);
         int visible = 0;
         int extent = 0;
         if (rows != null) {
             for (int i = 0; i < rows.getChildCount(); i++) {
                 View row = rows.getChildAt(i);
-                if (row.getVisibility() != View.VISIBLE) {
+                if (row.getVisibility() != View.VISIBLE)
                     continue;
-                }
-                if (visible < VISIBLE_ROWS) {
+                if (visible < VISIBLE_ROWS)
                     extent += row.getMeasuredHeight() + verticalMargins(row);
-                }
                 visible++;
             }
         }
         visibleRows = visible;
         ViewGroup.LayoutParams params = scroller.getLayoutParams();
-        if (params == null) {
-            return;
-        }
+        if (params == null) return;
         if (heightFixed(view)) {
             if (params.height != ViewGroup.LayoutParams.MATCH_PARENT) {
                 params.height = ViewGroup.LayoutParams.MATCH_PARENT;
@@ -354,9 +301,7 @@ public final class NearbyOverlay {
             }
             return;
         }
-        int target = extent <= 0 || visible <= VISIBLE_ROWS
-                ? ViewGroup.LayoutParams.WRAP_CONTENT
-                : extent + scroller.getPaddingTop() + scroller.getPaddingBottom();
+        int target = extent <= 0 || visible <= VISIBLE_ROWS ? ViewGroup.LayoutParams.WRAP_CONTENT : extent + scroller.getPaddingTop() + scroller.getPaddingBottom();
         if (params.height != target) {
             params.height = target;
             scroller.setLayoutParams(params);
@@ -379,67 +324,55 @@ public final class NearbyOverlay {
 
     private static void handOffDrag(View view, MotionEvent event) {
         int action = event.getActionMasked();
-        if (action == MotionEvent.ACTION_DOWN) {
+        if (action == MotionEvent.ACTION_DOWN)
             EasyFloat.dragEnable(!shouldHandOffDrag(view, event), TAG);
-        } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+        else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL)
             EasyFloat.dragEnable(true, TAG);
-        }
     }
 
     private static boolean shouldHandOffDrag(View view, MotionEvent event) {
-        if (isInside(view.findViewById(R.id.overlay_resize_start), event)
-                || isInside(view.findViewById(R.id.overlay_resize_end), event)) {
+        if (isInside(view.findViewById(R.id.overlay_resize_start), event) || isInside(view.findViewById(R.id.overlay_resize_end), event))
             return true;
-        }
-        if (isInside(view.findViewById(R.id.overlay_opacity_seek), event)) {
+        if (isInside(view.findViewById(R.id.overlay_opacity_seek), event))
             return true;
-        }
         ScrollView scroller = view.findViewById(R.id.overlay_scroll);
         return isInside(scroller, event) && scrollable(scroller);
     }
 
     private static boolean scrollable(ScrollView scroller) {
-        if (scroller == null) {
+        if (scroller == null)
             return false;
-        }
-        if (scroller.canScrollVertically(1) || scroller.canScrollVertically(-1)) {
+        if (scroller.canScrollVertically(1) || scroller.canScrollVertically(-1))
             return true;
-        }
         View content = scroller.getChildCount() > 0 ? scroller.getChildAt(0) : null;
-        if (content != null && content.getHeight() > 0 && scroller.getHeight() > 0) {
+        if (content != null && content.getHeight() > 0 && scroller.getHeight() > 0)
             return content.getHeight() > scroller.getHeight();
-        }
         return visibleRows > VISIBLE_ROWS;
     }
 
     private static boolean isInside(View target, MotionEvent event) {
-        if (target == null || target.getVisibility() != View.VISIBLE) {
+        if (target == null || target.getVisibility() != View.VISIBLE)
             return false;
-        }
-        if (target.getWidth() <= 0 || target.getHeight() <= 0) {
+        if (target.getWidth() <= 0 || target.getHeight() <= 0)
             return false;
-        }
         int[] location = new int[2];
         target.getLocationOnScreen(location);
         float x = event.getRawX();
         float y = event.getRawY();
-        return x >= location[0] && x < location[0] + target.getWidth()
-                && y >= location[1] && y < location[1] + target.getHeight();
+        return x >= location[0] && x < location[0] + target.getWidth() && y >= location[1] && y < location[1] + target.getHeight();
     }
 
     static void onOverlayResized(View content) {
         NearbyListView cards = content.findViewById(R.id.overlay_cards);
         ScrollView scroller = content.findViewById(R.id.overlay_scroll);
-        if (cards == null || scroller == null) {
-            return;
-        }
+        if (cards == null || scroller == null) return;
         fitCardsHeight(content, cards, scroller);
     }
 
     private static int dp(Context context, int value) {
         return Math.round(value * context.getResources().getDisplayMetrics().density);
     }
-    
+
     private static int windowWidth(Context context) {
         return dp(context, CARD_WIDTH_DP);
     }

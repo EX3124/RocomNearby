@@ -41,9 +41,7 @@ public final class MapCatalog {
         public final double defaultFocusX;
         public final double defaultFocusY;
 
-        Scene(int sceneId, String name, double originX, double originY, double side,
-              int imageWidth, int imageHeight, String assetPath,
-              double defaultFocusX, double defaultFocusY) {
+        Scene(int sceneId, String name, double originX, double originY, double side, int imageWidth, int imageHeight, String assetPath, double defaultFocusX, double defaultFocusY) {
             this.sceneId = sceneId;
             this.name = name;
             this.originX = originX;

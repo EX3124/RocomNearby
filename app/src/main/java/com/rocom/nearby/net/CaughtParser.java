@@ -31,8 +31,7 @@ final class CaughtParser {
         final boolean hasVoice;
         final long addTime;
 
-        Caught(long gid, long confId, long baseConfId, long height, long weight,
-               long voice, boolean hasVoice, long addTime) {
+        Caught(long gid, long confId, long baseConfId, long height, long weight, long voice, boolean hasVoice, long addTime) {
             this.gid = gid;
             this.confId = confId;
             this.baseConfId = baseConfId;
@@ -46,32 +45,27 @@ final class CaughtParser {
 
     static boolean carriesCaught(int opcode) {
         for (int i = 0; i < OPCODES.length; i++) {
-            if (OPCODES[i] == opcode) {
+            if (OPCODES[i] == opcode)
                 return true;
-            }
         }
         return false;
     }
 
     static List<Caught> parse(byte[] plain) {
         List<Caught> out = new ArrayList<>();
-        if (plain == null || plain.length <= HEADER_BYTES) {
+        if (plain == null || plain.length <= HEADER_BYTES)
             return out;
-        }
         collect(plain, HEADER_BYTES, plain.length, 0, out);
         return out;
     }
 
     private static void collect(byte[] buf, int start, int end, int depth, List<Caught> out) {
-        if (depth > MAX_DEPTH) {
-            return;
-        }
+        if (depth > MAX_DEPTH) return;
         List<ProtoScan.Field> fields = ProtoScan.scan(buf, start, end);
         for (int i = 0; i < fields.size(); i++) {
             ProtoScan.Field field = fields.get(i);
-            if (field.wire != ProtoScan.WIRE_LENGTH) {
+            if (field.wire != ProtoScan.WIRE_LENGTH)
                 continue;
-            }
             Caught record = readRecord(buf, field.valueStart, field.valueEnd);
             if (record != null) {
                 out.add(record);
@@ -82,9 +76,8 @@ final class CaughtParser {
     }
 
     private static Caught readRecord(byte[] buf, int start, int end) {
-        if (end - start < MIN_RECORD_BYTES) {
+        if (end - start < MIN_RECORD_BYTES)
             return null;
-        }
         List<ProtoScan.Field> fields = ProtoScan.scan(buf, start, end);
         long gid = 0L;
         long confId = 0L;
@@ -97,19 +90,16 @@ final class CaughtParser {
         long addTime = 0L;
         for (int i = 0; i < fields.size(); i++) {
             ProtoScan.Field field = fields.get(i);
-            if (field.wire != ProtoScan.WIRE_VARINT) {
+            if (field.wire != ProtoScan.WIRE_VARINT)
                 continue;
-            }
             switch (field.number) {
                 case FIELD_GID:
-                    if (gid == 0L) {
+                    if (gid == 0L)
                         gid = field.varint;
-                    }
                     break;
                 case FIELD_CONF_ID:
-                    if (confId == 0L) {
+                    if (confId == 0L)
                         confId = field.varint;
-                    }
                     break;
                 case FIELD_BASE_CONF_ID:
                     baseConfId = field.varint;
@@ -136,16 +126,13 @@ final class CaughtParser {
                     break;
             }
         }
-        if (fields.isEmpty() || fields.get(fields.size() - 1).end != end) {
+        if (fields.isEmpty() || fields.get(fields.size() - 1).end != end)
             return null;
-        }
-        if (gid <= 0L || confId <= MIN_CONF_ID) {
+        if (gid <= 0L || confId <= MIN_CONF_ID)
             return null;
-        }
         long species = baseConfId != 0L ? baseConfId : fallbackBaseConfId;
-        if (species <= MIN_BASE_CONF_ID || height <= 0L || weight <= 0L) {
+        if (species <= MIN_BASE_CONF_ID || height <= 0L || weight <= 0L)
             return null;
-        }
         return new Caught(gid, confId, species, height, weight, voice, voice != 0L, addTime);
     }
 }

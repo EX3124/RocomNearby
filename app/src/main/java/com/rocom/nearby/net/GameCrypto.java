@@ -11,8 +11,7 @@ final class GameCrypto {
     private byte[] key;
 
     void setKey(byte[] newKey) {
-        key = newKey != null && newKey.length == 16
-                ? Arrays.copyOf(newKey, 16) : null;
+        key = newKey != null && newKey.length == 16 ? Arrays.copyOf(newKey, 16) : null;
     }
 
     void reset() {
@@ -20,9 +19,8 @@ final class GameCrypto {
     }
 
     byte[] decrypt(byte[] data, int offset, int length) {
-        if (key == null || data == null || length <= 0) {
+        if (key == null || data == null || length <= 0)
             return null;
-        }
         byte[] iv;
         int cipherOffset;
         int cipherLength;
@@ -34,13 +32,10 @@ final class GameCrypto {
             iv = new byte[16];
             cipherOffset = offset;
             cipherLength = length;
-        } else {
-            return null;
-        }
+        } else return null;
         try {
             Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
-            cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"),
-                    new IvParameterSpec(iv));
+            cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
             return cipher.doFinal(data, cipherOffset, cipherLength);
         } catch (Throwable e) {
             return null;

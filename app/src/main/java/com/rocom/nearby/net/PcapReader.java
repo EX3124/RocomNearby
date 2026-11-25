@@ -36,20 +36,15 @@ final class PcapReader {
     }
 
     void feed(byte[] data, int offset, int count) {
-        if (data == null || count <= 0) {
-            return;
-        }
+        if (data == null || count <= 0) return;
         ensureCapacity(length + count);
         System.arraycopy(data, offset, buffer, length, count);
         length += count;
         if (!headerParsed) {
-            if (length < 24) {
-                return;
-            }
+            if (length < 24) return;
             parseHeader();
-        } else if (length >= 24 && isPcapMagic(readIntBE(buffer, 0))) {
+        } else if (length >= 24 && isPcapMagic(readIntBE(buffer, 0)))
             parseHeader();
-        }
         parseRecords();
     }
 
@@ -85,9 +80,7 @@ final class PcapReader {
     private void parseRecords() {
         while (length >= 16) {
             if (isPcapMagic(readIntBE(buffer, 0))) {
-                if (length < 24) {
-                    return;
-                }
+                if (length < 24) return;
                 parseHeader();
                 continue;
             }
@@ -99,9 +92,7 @@ final class PcapReader {
                 continue;
             }
             int recordLength = (int) included;
-            if (length < 16 + recordLength) {
-                return;
-            }
+            if (length < 16 + recordLength) return;
             double timestamp = tsSec + (double) tsFrac / timestampDivisor;
             listener.onPacket(timestamp, buffer, 16, recordLength);
             consume(16 + recordLength);
@@ -109,22 +100,17 @@ final class PcapReader {
     }
 
     private void ensureCapacity(int needed) {
-        if (needed <= buffer.length) {
-            return;
-        }
+        if (needed <= buffer.length) return;
         int capacity = buffer.length;
-        while (capacity < needed) {
+        while (capacity < needed)
             capacity *= 2;
-        }
         byte[] next = new byte[capacity];
         System.arraycopy(buffer, 0, next, 0, length);
         buffer = next;
     }
 
     private void consume(int count) {
-        if (count <= 0) {
-            return;
-        }
+        if (count <= 0) return;
         if (count >= length) {
             length = 0;
             return;
@@ -134,26 +120,18 @@ final class PcapReader {
     }
 
     private static boolean isPcapMagic(int magic) {
-        return magic == PCAP_MAGIC_BE || magic == PCAP_MAGIC_LE
-                || magic == PCAP_NANO_MAGIC_BE || magic == PCAP_NANO_MAGIC_LE;
+        return magic == PCAP_MAGIC_BE || magic == PCAP_MAGIC_LE || magic == PCAP_NANO_MAGIC_BE || magic == PCAP_NANO_MAGIC_LE;
     }
 
     private long readUnsigned(byte[] data, int offset) {
-        return littleEndian ? readIntLE(data, offset) & 0xFFFFFFFFL
-                : readIntBE(data, offset) & 0xFFFFFFFFL;
+        return littleEndian ? readIntLE(data, offset) & 0xFFFFFFFFL : readIntBE(data, offset) & 0xFFFFFFFFL;
     }
 
     private static int readIntBE(byte[] data, int offset) {
-        return ((data[offset] & 0xFF) << 24)
-                | ((data[offset + 1] & 0xFF) << 16)
-                | ((data[offset + 2] & 0xFF) << 8)
-                | (data[offset + 3] & 0xFF);
+        return ((data[offset] & 0xFF) << 24) | ((data[offset + 1] & 0xFF) << 16) | ((data[offset + 2] & 0xFF) << 8) | (data[offset + 3] & 0xFF);
     }
 
     private static int readIntLE(byte[] data, int offset) {
-        return (data[offset] & 0xFF)
-                | ((data[offset + 1] & 0xFF) << 8)
-                | ((data[offset + 2] & 0xFF) << 16)
-                | ((data[offset + 3] & 0xFF) << 24);
+        return (data[offset] & 0xFF) | ((data[offset + 1] & 0xFF) << 8) | ((data[offset + 2] & 0xFF) << 16) | ((data[offset + 3] & 0xFF) << 24);
     }
 }

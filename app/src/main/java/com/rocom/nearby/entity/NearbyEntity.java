@@ -7,7 +7,7 @@ import java.util.Collections;
 import java.util.List;
 
 public final class NearbyEntity {
-    
+
     public static final double UNKNOWN = Double.NaN;
     public static final double WEIGHT_PERCENTILE_BIG = 98.0;
     public static final double WEIGHT_PERCENTILE_SMALL = 2.0;
@@ -29,12 +29,7 @@ public final class NearbyEntity {
     public final boolean fighting;
     public final long gender;
     public final long battlestate;
-    public NearbyEntity(@Nullable String name, int level,
-                        @Nullable List<Badge> badges,
-                        double heightMeters, double weightKg, double voice,
-                        double heightPercentile, double weightPercentile,
-                        double worldX, double worldY, boolean fighting,
-                        long gender, long battlestate) {
+    public NearbyEntity(@Nullable String name, int level, @Nullable List<Badge> badges, double heightMeters, double weightKg, double voice, double heightPercentile, double weightPercentile, double worldX, double worldY, boolean fighting, long gender, long battlestate) {
         this.name = name;
         this.level = level;
         this.badges = freezeBadges(badges);
@@ -52,22 +47,19 @@ public final class NearbyEntity {
 
     public boolean hasBadge(Badge.Kind kind) {
         for (int i = 0; i < badges.size(); i++) {
-            if (badges.get(i).kind == kind) {
+            if (badges.get(i).kind == kind)
                 return true;
-            }
         }
         return false;
     }
 
     public String identityKey() {
-        return (name == null ? "" : name) + '|' + level
-                + '|' + heightMeters + '|' + weightKg + '|' + voice;
+        return (name == null ? "" : name) + '|' + level + '|' + heightMeters + '|' + weightKg + '|' + voice;
     }
 
     private static List<Badge> freezeBadges(@Nullable List<Badge> badges) {
-        if (badges == null || badges.isEmpty()) {
+        if (badges == null || badges.isEmpty())
             return Collections.emptyList();
-        }
         return Collections.unmodifiableList(new ArrayList<>(badges));
     }
 }

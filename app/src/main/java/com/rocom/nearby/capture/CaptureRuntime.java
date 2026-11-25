@@ -24,8 +24,7 @@ public final class CaptureRuntime {
         public final String message;
         public final int port;
         public final boolean connected;
-        public Snapshot(State state, long bytes, int packets, @Nullable String filePath,
-                        String message, int port, boolean connected) {
+        public Snapshot(State state, long bytes, int packets, @Nullable String filePath, String message, int port, boolean connected) {
             this.state = state;
             this.bytes = bytes;
             this.packets = packets;
@@ -43,8 +42,7 @@ public final class CaptureRuntime {
 
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
-    private static volatile Snapshot current = new Snapshot(
-            State.IDLE, 0, 0, null, "", 0, false);
+    private static volatile Snapshot current = new Snapshot(State.IDLE, 0, 0, null, "", 0, false);
 
     private static Listener listener;
 
@@ -57,32 +55,28 @@ public final class CaptureRuntime {
     }
 
     public static void clearListener(Listener oldListener) {
-        if (listener == oldListener) {
+        if (listener == oldListener)
             listener = null;
-        }
     }
 
     public static void publish(Snapshot snapshot) {
         current = snapshot;
         MAIN.post(() -> {
             Listener target = listener;
-            if (target != null) {
+            if (target != null)
                 target.onCaptureSnapshot(snapshot);
-            }
         });
     }
 
-    public static void publish(State state, long bytes, int packets, @Nullable String filePath,
-                               String message, int port, boolean connected) {
+    public static void publish(State state, long bytes, int packets, @Nullable String filePath, String message, int port, boolean connected) {
         publish(new Snapshot(state, bytes, packets, filePath, message, port, connected));
     }
 
     public static void notifyServerReady(int port) {
         MAIN.post(() -> {
             Listener target = listener;
-            if (target != null) {
+            if (target != null)
                 target.onServerReady(port);
-            }
         });
     }
 }

@@ -30,27 +30,23 @@ public final class Badge {
     }
 
     public static Badge bloodline(long id) {
-        if (id < BLOODLINE_MIN || id > BLOODLINE_MAX) {
+        if (id < BLOODLINE_MIN || id > BLOODLINE_MAX)
             return null;
-        }
         return new Badge(Kind.BLOODLINE, (int) id);
     }
 
     public static Badge nature(long id) {
-        if (id <= 0) {
+        if (id <= 0)
             return null;
-        }
         return new Badge(Kind.NATURE, (int) id);
     }
 
     @Override
     public boolean equals(Object other) {
-        if (this == other) {
+        if (this == other)
             return true;
-        }
-        if (!(other instanceof Badge)) {
+        if (!(other instanceof Badge))
             return false;
-        }
         Badge badge = (Badge) other;
         return kind == badge.kind && value == badge.value;
     }

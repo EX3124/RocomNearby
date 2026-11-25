@@ -12,8 +12,7 @@ final class TcpPacket {
     final boolean syn;
     final byte[] payload;
 
-    TcpPacket(double timestamp, int srcIp, int dstIp, int srcPort, int dstPort,
-              long sequence, int flags, byte[] payload) {
+    TcpPacket(double timestamp, int srcIp, int dstIp, int srcPort, int dstPort, long sequence, int flags, byte[] payload) {
         this.timestamp = timestamp;
         this.srcIp = srcIp;
         this.dstIp = dstIp;

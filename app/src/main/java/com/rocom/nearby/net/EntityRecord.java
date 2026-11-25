@@ -1,7 +1,7 @@
 package com.rocom.nearby.net;
 
 final class EntityRecord {
-    
+
     static final long NO_VOICE = Long.MIN_VALUE;
     final long actorId;
     final long token;
@@ -19,9 +19,7 @@ final class EntityRecord {
     double y;
     double z;
 
-    EntityRecord(long actorId, long token, long cfgId, long refreshId, long uniqueId,
-                 long level, long height, long weight, long mutation, long voice,
-                 long glassType, long glassValue, double x, double y, double z) {
+    EntityRecord(long actorId, long token, long cfgId, long refreshId, long uniqueId, long level, long height, long weight, long mutation, long voice, long glassType, long glassValue, double x, double y, double z) {
         this.actorId = actorId;
         this.token = token;
         this.cfgId = cfgId;
@@ -38,7 +36,7 @@ final class EntityRecord {
         this.y = y;
         this.z = z;
     }
-    
+
     double heightMeters() {
         return height / 100.0;
     }

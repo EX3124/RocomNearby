@@ -27,8 +27,7 @@ public final class NearbyRuntime {
             this(sceneId, hasPosition, selfX, selfY, NO_ENTITIES);
         }
 
-        Snapshot(int sceneId, boolean hasPosition, double selfX, double selfY,
-                 List<NearbyEntity> entities) {
+        Snapshot(int sceneId, boolean hasPosition, double selfX, double selfY, List<NearbyEntity> entities) {
             this.sceneId = sceneId;
             this.hasPosition = hasPosition;
             this.selfX = selfX;
@@ -44,8 +43,7 @@ public final class NearbyRuntime {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static volatile Snapshot current = new Snapshot(0, false, 0, 0);
     private static Listener listener;
-    private static final CopyOnWriteArrayList<Listener> extraListeners =
-            new CopyOnWriteArrayList<>();
+    private static final CopyOnWriteArrayList<Listener> extraListeners = new CopyOnWriteArrayList<>();
 
     public static Snapshot current() {
         return current;
@@ -56,15 +54,13 @@ public final class NearbyRuntime {
     }
 
     public static void clearListener(Listener oldListener) {
-        if (listener == oldListener) {
+        if (listener == oldListener)
             listener = null;
-        }
     }
 
     public static void addListener(@Nullable Listener extra) {
-        if (extra != null) {
+        if (extra != null)
             extraListeners.addIfAbsent(extra);
-        }
     }
 
     public static void removeListener(Listener extra) {
@@ -72,26 +68,20 @@ public final class NearbyRuntime {
     }
 
     public static void publishPosition(int sceneId, double worldX, double worldY) {
-        if (!Double.isFinite(worldX) || !Double.isFinite(worldY)) {
-            return;
-        }
+        if (!Double.isFinite(worldX) || !Double.isFinite(worldY)) return;
         Snapshot previous = current;
-        List<NearbyEntity> entities = previous.sceneId == sceneId || previous.sceneId == 0
-                ? previous.entities
-                : NO_ENTITIES;
+        List<NearbyEntity> entities = previous.sceneId == sceneId || previous.sceneId == 0 ? previous.entities : NO_ENTITIES;
         publish(new Snapshot(sceneId, true, worldX, worldY, entities));
     }
 
     public static void publishEntities(@Nullable List<NearbyEntity> entities) {
         Snapshot previous = current;
-        publish(new Snapshot(previous.sceneId, previous.hasPosition,
-                previous.selfX, previous.selfY, freeze(entities)));
+        publish(new Snapshot(previous.sceneId, previous.hasPosition, previous.selfX, previous.selfY, freeze(entities)));
     }
 
     private static List<NearbyEntity> freeze(@Nullable List<NearbyEntity> entities) {
-        if (entities == null || entities.isEmpty()) {
+        if (entities == null || entities.isEmpty())
             return NO_ENTITIES;
-        }
         return Collections.unmodifiableList(new ArrayList<>(entities));
     }
 
@@ -100,9 +90,7 @@ public final class NearbyRuntime {
     }
 
     public static void publishScene(int sceneId) {
-        if (sceneId <= 0) {
-            return;
-        }
+        if (sceneId <= 0) return;
         publish(new Snapshot(sceneId, false, 0, 0));
     }
 
@@ -117,11 +105,9 @@ public final class NearbyRuntime {
 
     private static void dispatch(Snapshot snapshot) {
         Listener target = listener;
-        if (target != null) {
+        if (target != null)
             target.onNearbySnapshot(snapshot);
-        }
-        for (Listener extra : extraListeners) {
+        for (Listener extra : extraListeners)
             extra.onNearbySnapshot(snapshot);
-        }
     }
 }

@@ -5,8 +5,6 @@
     android:layout_height="wrap_content"
     android:background="@drawable/bg_overlay_card">
 
-    <!-- 卡片内容：宽度跟着窗口走；用户把底角拖出固定尺寸之后，高度也由窗口决定，
-         列表用 ScrollView 吃掉标题条之外的剩余高度。 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -35,8 +33,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:max="100"
-                android:progress="100" />
+                android:max="100" />
 
             <Space
                 android:layout_width="0dp"
@@ -84,20 +81,16 @@
 
     </LinearLayout>
 
-    <!-- 底角缩放热区：把这两个角往外拖，整个浮窗跟着变大（上限是屏幕，下限是
-         这个布局创建后第一次布局量出来的大小，不是写死的 dp）。两个视图不画任何
-         东西——没有记号、没有底色，只是贴在角上接手势；尺寸不写进 prefs，浮窗
-         重开就回到原样。 -->
     <com.rocom.nearby.overlay.OverlayResizeGrip
         android:id="@+id/overlay_resize_start"
-        android:layout_width="22dp"
-        android:layout_height="22dp"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
         android:layout_gravity="bottom|start" />
 
     <com.rocom.nearby.overlay.OverlayResizeGrip
         android:id="@+id/overlay_resize_end"
-        android:layout_width="22dp"
-        android:layout_height="22dp"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
         android:layout_gravity="bottom|end" />
 
 </FrameLayout>

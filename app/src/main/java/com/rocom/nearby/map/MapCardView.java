@@ -51,8 +51,7 @@ public class MapCardView extends LinearLayout {
         setOrientation(VERTICAL);
         setBackgroundResource(R.drawable.bg_content);
         int padding = Math.round(12 * getResources().getDisplayMetrics().density);
-        boolean landscape = getResources().getConfiguration().orientation
-                == Configuration.ORIENTATION_LANDSCAPE;
+        boolean landscape = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
         setPadding(padding, padding, padding, landscape ? padding / 2 : padding);
         LayoutInflater.from(context).inflate(R.layout.map, this, true);
         mapView = findViewById(R.id.map_view);
@@ -77,26 +76,20 @@ public class MapCardView extends LinearLayout {
         locate.setOnClickListener(view -> mapView.toggleFollowing());
         paintChip.setOnClickListener(view -> togglePaint());
         paintClear.setOnClickListener(view -> {
-            if (scene != null) {
+            if (scene != null)
                 MapPaint.clear(scene.sceneId);
-            }
         });
         applyPaintState();
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        boolean landscape = getResources().getConfiguration().orientation
-                == Configuration.ORIENTATION_LANDSCAPE;
+        boolean landscape = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
         int heightMode = MeasureSpec.getMode(heightMeasureSpec);
         if (landscape && heightMode == MeasureSpec.EXACTLY) {
-            if (measureHeightDriven(widthMeasureSpec, heightMeasureSpec)) {
-                return;
-            }
+            if (measureHeightDriven(widthMeasureSpec, heightMeasureSpec)) return;
         } else if (!landscape && heightMode != MeasureSpec.EXACTLY) {
-            if (measureWidthDriven(widthMeasureSpec, heightMeasureSpec)) {
-                return;
-            }
+            if (measureWidthDriven(widthMeasureSpec, heightMeasureSpec)) return;
         }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
     }
@@ -104,21 +97,14 @@ public class MapCardView extends LinearLayout {
     private boolean measureHeightDriven(int widthMeasureSpec, int heightMeasureSpec) {
         int totalHeight = MeasureSpec.getSize(heightMeasureSpec);
         int controlsHeight = controlsHeight();
-        int availableForMap = totalHeight - getPaddingTop() - getPaddingBottom()
-                - controlsHeight;
-        if (availableForMap <= 0) {
+        int availableForMap = totalHeight - getPaddingTop() - getPaddingBottom() - controlsHeight;
+        if (availableForMap <= 0)
             return false;
-        }
         int widthMode = MeasureSpec.getMode(widthMeasureSpec);
-        int maxSize = (widthMode == MeasureSpec.UNSPECIFIED)
-                ? Integer.MAX_VALUE
-                : MeasureSpec.getSize(widthMeasureSpec);
-        Sizing size = Sizing.landscapeSize(
-                availableForMap, maxSize,
-                getPaddingLeft() + getPaddingRight(), landscapeWidthBudget());
-        if (size == null) {
+        int maxSize = (widthMode == MeasureSpec.UNSPECIFIED) ? Integer.MAX_VALUE : MeasureSpec.getSize(widthMeasureSpec);
+        Sizing size = Sizing.landscapeSize(availableForMap, maxSize, getPaddingLeft() + getPaddingRight(), landscapeWidthBudget());
+        if (size == null)
             return false;
-        }
         measureMapAndControls(size, controlsHeight);
         int desiredWidth = size.width + getPaddingLeft() + getPaddingRight();
         setMeasuredDimension(resolveSize(desiredWidth, widthMeasureSpec), totalHeight);
@@ -126,54 +112,36 @@ public class MapCardView extends LinearLayout {
     }
 
     private boolean measureWidthDriven(int widthMeasureSpec, int heightMeasureSpec) {
-        if (MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.UNSPECIFIED) {
+        if (MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.UNSPECIFIED)
             return false;
-        }
         int controlsHeight = controlsHeight();
-        Sizing size = Sizing.portraitSize(
-                MeasureSpec.getSize(widthMeasureSpec),
-                getPaddingLeft() + getPaddingRight(),
-                getPaddingTop() + getPaddingBottom(),
-                controlsHeight,
-                cardHeightLimit(heightMeasureSpec));
-        if (size == null) {
+        Sizing size = Sizing.portraitSize(MeasureSpec.getSize(widthMeasureSpec), getPaddingLeft() + getPaddingRight(), getPaddingTop() + getPaddingBottom(), controlsHeight, cardHeightLimit(heightMeasureSpec));
+        if (size == null)
             return false;
-        }
         measureMapAndControls(size, controlsHeight);
         View controls = findViewById(R.id.map_controls);
         int measuredControls = (controls != null) ? controls.getMeasuredHeight() : 0;
         int desiredWidth = size.width + getPaddingLeft() + getPaddingRight();
-        int desiredHeight = size.height + getPaddingTop() + getPaddingBottom()
-                + measuredControls;
-        setMeasuredDimension(
-                resolveSize(desiredWidth, widthMeasureSpec),
-                resolveSize(desiredHeight, heightMeasureSpec));
+        int desiredHeight = size.height + getPaddingTop() + getPaddingBottom() + measuredControls;
+        setMeasuredDimension(resolveSize(desiredWidth, widthMeasureSpec), resolveSize(desiredHeight, heightMeasureSpec));
         return true;
     }
 
     private void measureMapAndControls(Sizing size, int controlsHeight) {
         View map = findViewById(R.id.map_view);
-        if (map != null) {
-            map.measure(
-                    MeasureSpec.makeMeasureSpec(size.width, MeasureSpec.EXACTLY),
-                    MeasureSpec.makeMeasureSpec(size.height, MeasureSpec.EXACTLY));
-        }
+        if (map != null)
+            map.measure(MeasureSpec.makeMeasureSpec(size.width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(size.height, MeasureSpec.EXACTLY));
         View controls = findViewById(R.id.map_controls);
         if (controls != null) {
-            int controlsHeightSpec = (controlsHeight > 0)
-                    ? MeasureSpec.makeMeasureSpec(controlsHeight, MeasureSpec.EXACTLY)
-                    : MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED);
-            controls.measure(
-                    MeasureSpec.makeMeasureSpec(size.width, MeasureSpec.EXACTLY),
-                    controlsHeightSpec);
+            int controlsHeightSpec = (controlsHeight > 0) ? MeasureSpec.makeMeasureSpec(controlsHeight, MeasureSpec.EXACTLY) : MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED);
+            controls.measure(MeasureSpec.makeMeasureSpec(size.width, MeasureSpec.EXACTLY), controlsHeightSpec);
         }
     }
 
     private int controlsHeight() {
         View controls = findViewById(R.id.map_controls);
-        if (controls != null && controls.getLayoutParams() != null) {
+        if (controls != null && controls.getLayoutParams() != null)
             return Math.max(0, controls.getLayoutParams().height);
-        }
         return 0;
     }
 
@@ -189,16 +157,13 @@ public class MapCardView extends LinearLayout {
     private int landscapeWidthBudget() {
         int screenWidth = 0;
         ViewParent parent = getParent();
-        if (parent instanceof View) {
+        if (parent instanceof View)
             screenWidth = ((View) parent).getWidth();
-        }
-        if (screenWidth <= 0) {
+        if (screenWidth <= 0)
             screenWidth = getResources().getDisplayMetrics().widthPixels;
-        }
         int budget = Sizing.screenWidthBudget(screenWidth);
-        if (budget <= 0) {
+        if (budget <= 0)
             return 0;
-        }
         int margins = 0;
         ViewGroup.LayoutParams params = getLayoutParams();
         if (params instanceof ViewGroup.MarginLayoutParams) {
@@ -208,8 +173,7 @@ public class MapCardView extends LinearLayout {
         return budget - margins;
     }
 
-    public void bind(MapCatalog.Scene newScene, @Nullable MapPaint newPaint,
-                     double worldX, double worldY) {
+    public void bind(MapCatalog.Scene newScene, @Nullable MapPaint newPaint, double worldX, double worldY) {
         boolean sameScene = scene != null && scene.sceneId == newScene.sceneId;
         scene = newScene;
         paint = newPaint != null ? newPaint : MapPaint.get(newScene.sceneId);
@@ -218,9 +182,8 @@ public class MapCardView extends LinearLayout {
         mapView.setScene(newScene);
         mapView.setPaint(paint);
         mapView.setSelf(worldX, worldY);
-        if (!sameScene) {
+        if (!sameScene)
             mapView.recenter();
-        }
         applyPaintState();
     }
 
@@ -243,9 +206,8 @@ public class MapCardView extends LinearLayout {
 
     public void updateSelfPosition(double worldX, double worldY) {
         syncPaint();
-        if (worldX == selfX && worldY == selfY) {
+        if (worldX == selfX && worldY == selfY)
             return;
-        }
         selfX = worldX;
         selfY = worldY;
         mapView.setSelf(worldX, worldY);
@@ -287,9 +249,8 @@ public class MapCardView extends LinearLayout {
     private void togglePaint() {
         boolean enabled = !MapPaint.isEnabled();
         MapPaint.setEnabled(enabled);
-        if (enabled && scene != null && Double.isFinite(selfX) && Double.isFinite(selfY)) {
+        if (enabled && scene != null && Double.isFinite(selfX) && Double.isFinite(selfY))
             MapPaint.record(scene.sceneId, selfX, selfY);
-        }
         syncPaint();
         applyPaintState();
         mapView.invalidate();
@@ -297,9 +258,7 @@ public class MapCardView extends LinearLayout {
 
     public void syncPaint() {
         MapPaint current = scene == null ? null : MapPaint.get(scene.sceneId);
-        if (current == paint) {
-            return;
-        }
+        if (current == paint) return;
         paint = current;
         mapView.setPaint(current);
     }
@@ -321,23 +280,16 @@ public class MapCardView extends LinearLayout {
     private void applyPaintState() {
         boolean visible = MapPaint.isEnabled();
         paintChip.setSelected(visible);
-        paintChip.setBackgroundResource(visible
-                ? R.drawable.bg_map_chip_on
-                : R.drawable.bg_map_chip_off);
-        paintChip.setTextColor(getContext().getColor(visible
-                ? R.color.content_background
-                : R.color.paint_button_text));
+        paintChip.setBackgroundResource(visible ? R.drawable.bg_map_chip_on : R.drawable.bg_map_chip_off);
+        paintChip.setTextColor(getContext().getColor(visible ? R.color.content_background : R.color.paint_button_text));
         paintClear.setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
         mapView.setPaintVisible(visible);
     }
 
     private void onFollowChanged(boolean following) {
-        locate.setTextColor(getContext().getColor(following
-                ? R.color.action_button_gradient_start
-                : R.color.text));
-        if (followChangedListener != null) {
+        locate.setTextColor(getContext().getColor(following ? R.color.action_button_gradient_start : R.color.text));
+        if (followChangedListener != null)
             followChangedListener.run();
-        }
     }
 
     private static void updateZoomButton(TextView button, boolean enabled) {
@@ -360,67 +312,52 @@ public class MapCardView extends LinearLayout {
             this.fourThreeKept = fourThreeKept;
         }
 
-        static Sizing landscapeSize(int availableForMapHeight, int outerWidthLimit,
-                int horizontalPadding, int screenWidthBudget) {
-            if (availableForMapHeight <= 0 || horizontalPadding < 0) {
+        static Sizing landscapeSize(int availableForMapHeight, int outerWidthLimit, int horizontalPadding, int screenWidthBudget) {
+            if (availableForMapHeight <= 0 || horizontalPadding < 0)
                 return null;
-            }
-            int maxMapWidth = (outerWidthLimit == Integer.MAX_VALUE)
-                    ? Integer.MAX_VALUE
-                    : outerWidthLimit - horizontalPadding;
-            if (maxMapWidth <= 0) {
+            int maxMapWidth = (outerWidthLimit == Integer.MAX_VALUE) ? Integer.MAX_VALUE : outerWidthLimit - horizontalPadding;
+            if (maxMapWidth <= 0)
                 return null;
-            }
             int idealMapWidth = Math.round(availableForMapHeight * MAP_ASPECT);
             if (screenWidthBudget > 0 && idealMapWidth + horizontalPadding > screenWidthBudget) {
                 int outerLimit = Math.min(outerWidthLimit, screenWidthBudget);
                 int width = outerLimit - horizontalPadding;
-                if (width <= 0) {
+                if (width <= 0)
                     return null;
-                }
                 return new Sizing(width, availableForMapHeight, false);
             }
-            if (idealMapWidth <= maxMapWidth) {
+            if (idealMapWidth <= maxMapWidth)
                 return new Sizing(idealMapWidth, availableForMapHeight, true);
-            }
             return new Sizing(maxMapWidth, Math.round(maxMapWidth / MAP_ASPECT), true);
         }
 
         static int screenWidthBudget(int screenWidth) {
-            if (screenWidth <= 0) {
+            if (screenWidth <= 0)
                 return 0;
-            }
             return Math.round(screenWidth * MAP_CARD_MAX_WIDTH_FRACTION);
         }
 
         static int screenHeightBudget(int screenHeight) {
-            if (screenHeight <= 0) {
+            if (screenHeight <= 0)
                 return 0;
-            }
             return Math.round(screenHeight * MAP_CARD_MAX_HEIGHT_FRACTION);
         }
 
-        static Sizing portraitSize(int outerWidth, int horizontalPadding,
-                int verticalPadding, int controlsHeight, int cardHeightLimit) {
-            if (outerWidth <= 0 || horizontalPadding < 0 || verticalPadding < 0
-                    || controlsHeight < 0) {
+        static Sizing portraitSize(int outerWidth, int horizontalPadding, int verticalPadding, int controlsHeight, int cardHeightLimit) {
+            if (outerWidth <= 0 || horizontalPadding < 0 || verticalPadding < 0 || controlsHeight < 0)
                 return null;
-            }
             int mapWidth = outerWidth - horizontalPadding;
-            if (mapWidth <= 0) {
+            if (mapWidth <= 0)
                 return null;
-            }
             int idealHeight = Math.round(mapWidth * 4f / 3f);
             int maxHeight = Integer.MAX_VALUE;
             if (cardHeightLimit > 0) {
                 maxHeight = cardHeightLimit - verticalPadding - controlsHeight;
-                if (maxHeight <= 0) {
+                if (maxHeight <= 0)
                     return null;
-                }
             }
-            if (idealHeight <= maxHeight) {
+            if (idealHeight <= maxHeight)
                 return new Sizing(mapWidth, idealHeight, true);
-            }
             return new Sizing(mapWidth, maxHeight, false);
         }
     }

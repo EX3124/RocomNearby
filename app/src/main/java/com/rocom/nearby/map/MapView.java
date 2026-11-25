@@ -165,8 +165,7 @@ public class MapView extends View {
         int widthMode = MeasureSpec.getMode(widthMeasureSpec);
         int height = MeasureSpec.getSize(heightMeasureSpec);
         int heightMode = MeasureSpec.getMode(heightMeasureSpec);
-        boolean landscape = getResources().getConfiguration().orientation
-                == Configuration.ORIENTATION_LANDSCAPE;
+        boolean landscape = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
         if (landscape) {
             if (widthMode == MeasureSpec.EXACTLY && heightMode == MeasureSpec.EXACTLY) {
                 setMeasuredDimension(width, height);
@@ -199,9 +198,7 @@ public class MapView extends View {
     }
 
     public void setScene(@Nullable MapCatalog.Scene newScene) {
-        if (scene == newScene) {
-            return;
-        }
+        if (scene == newScene) return;
         scene = newScene;
         releaseImages();
         initialized = false;
@@ -237,9 +234,7 @@ public class MapView extends View {
     }
 
     public void setPaintVisible(boolean visible) {
-        if (paintVisible == visible) {
-            return;
-        }
+        if (paintVisible == visible) return;
         paintVisible = visible;
         invalidate();
     }
@@ -260,9 +255,7 @@ public class MapView extends View {
     }
 
     public void setFollowing(boolean follow) {
-        if (following == follow) {
-            return;
-        }
+        if (following == follow) return;
         following = follow;
         if (following) {
             trackedKey = null;
@@ -277,50 +270,37 @@ public class MapView extends View {
     }
 
     public void trackEntity(@Nullable NearbyEntity entity) {
-        if (scene == null || entity == null
-                || !Double.isFinite(entity.worldX)
-                || !Double.isFinite(entity.worldY)) {
-            return;
-        }
+        if (scene == null || entity == null || !Double.isFinite(entity.worldX) || !Double.isFinite(entity.worldY)) return;
         trackedKey = entity.identityKey();
         boolean wasFollowing = following;
         following = false;
         centerX = entity.worldX;
         centerY = entity.worldY;
         invalidate();
-        if (wasFollowing) {
+        if (wasFollowing)
             notifyFollow();
-        }
     }
-    
+
     public void enterFreeMode() {
         trackedKey = null;
         setFollowing(false);
     }
 
     public void setEntities(@Nullable List<NearbyEntity> newEntities) {
-        if (newEntities == null || newEntities.isEmpty()) {
+        if (newEntities == null || newEntities.isEmpty())
             entities = Collections.emptyList();
-        } else {
-            entities = Collections.unmodifiableList(new ArrayList<>(newEntities));
-        }
+        else entities = Collections.unmodifiableList(new ArrayList<>(newEntities));
         followTracked();
         invalidate();
     }
 
     private void followTracked() {
-        if (trackedKey == null) {
-            return;
-        }
+        if (trackedKey == null) return;
         for (int i = 0; i < entities.size(); i++) {
             NearbyEntity candidate = entities.get(i);
-            if (candidate == null || !trackedKey.equals(candidate.identityKey())) {
+            if (candidate == null || !trackedKey.equals(candidate.identityKey()))
                 continue;
-            }
-            if (!Double.isFinite(candidate.worldX)
-                    || !Double.isFinite(candidate.worldY)) {
-                return;
-            }
+            if (!Double.isFinite(candidate.worldX) || !Double.isFinite(candidate.worldY)) return;
             centerX = candidate.worldX;
             centerY = candidate.worldY;
             return;
@@ -348,11 +328,9 @@ public class MapView extends View {
     public double getCenterY() {
         return centerY;
     }
-    
+
     public void restoreViewport(double worldCenterX, double worldCenterY, double span) {
-        if (!Double.isFinite(worldCenterX) || !Double.isFinite(worldCenterY)) {
-            return;
-        }
+        if (!Double.isFinite(worldCenterX) || !Double.isFinite(worldCenterY)) return;
         centerX = worldCenterX;
         centerY = worldCenterY;
         spanMetres = clampSpan(span);
@@ -382,9 +360,7 @@ public class MapView extends View {
 
     private void setSpanMetres(double span) {
         double clamped = clampSpan(span);
-        if (Math.abs(clamped - spanMetres) < SPAN_EPSILON_M) {
-            return;
-        }
+        if (Math.abs(clamped - spanMetres) < SPAN_EPSILON_M) return;
         spanMetres = clamped;
         reanchorAfterZoom();
         invalidate();
@@ -392,24 +368,20 @@ public class MapView extends View {
     }
 
     private static double clampSpan(double span) {
-        if (!Double.isFinite(span)) {
+        if (!Double.isFinite(span))
             return DEFAULT_SPAN_M;
-        }
         return Math.max(MIN_SPAN_M, Math.min(MAX_SPAN_M, span));
     }
 
     private void reanchorAfterZoom() {
-        if (following) {
+        if (following)
             panToSelf();
-        } else if (trackedKey != null) {
+        else if (trackedKey != null)
             followTracked();
-        }
     }
 
     public void recenter() {
-        if (scene == null) {
-            return;
-        }
+        if (scene == null) return;
         boolean followChanged = !following;
         following = true;
         trackedKey = null;
@@ -417,15 +389,12 @@ public class MapView extends View {
         spanMetres = DEFAULT_SPAN_M;
         invalidate();
         notifyViewport();
-        if (followChanged) {
+        if (followChanged)
             notifyFollow();
-        }
     }
 
     private void panToSelf() {
-        if (scene == null) {
-            return;
-        }
+        if (scene == null) return;
         centerX = Double.isFinite(selfX) ? selfX : scene.defaultFocusX;
         centerY = Double.isFinite(selfY) ? selfY : scene.defaultFocusY;
     }
@@ -437,18 +406,14 @@ public class MapView extends View {
     }
 
     private void releaseImages() {
-        if (regionBitmap != null && regionBitmap != fullBitmap) {
+        if (regionBitmap != null && regionBitmap != fullBitmap)
             regionBitmap.recycle();
-        }
-        if (overview != null) {
+        if (overview != null)
             overview.recycle();
-        }
-        if (fullBitmap != null) {
+        if (fullBitmap != null)
             fullBitmap.recycle();
-        }
-        if (paintOverlay != null) {
+        if (paintOverlay != null)
             paintOverlay.recycle();
-        }
         regionBitmap = null;
         overview = null;
         fullBitmap = null;
@@ -464,9 +429,7 @@ public class MapView extends View {
     }
 
     private void ensureInitialized() {
-        if (initialized || scene == null || released) {
-            return;
-        }
+        if (initialized || scene == null || released) return;
         if (getWidth() <= 0) {
             post(this::ensureInitialized);
             return;
@@ -479,9 +442,8 @@ public class MapView extends View {
     private void loadInitialBitmaps(MapCatalog.Scene target) {
         Bitmap loadedOverview = decodeAsset(target.assetPath, 4);
         BitmapRegionDecoder decoder = null;
-        if (!released) {
+        if (!released)
             decoder = openRegionDecoder(target.assetPath);
-        }
         if (released) {
             recycleQuietly(loadedOverview);
             return;
@@ -495,9 +457,8 @@ public class MapView extends View {
             }
             overview = overviewResult;
             regionDecoder = decoderResult;
-            if (decoderResult == null) {
+            if (decoderResult == null)
                 requestFullBitmap();
-            }
             invalidate();
         });
     }
@@ -521,9 +482,8 @@ public class MapView extends View {
             ByteArrayOutputStream buffer = new ByteArrayOutputStream(1 << 21);
             byte[] chunk = new byte[8192];
             int read;
-            while ((read = stream.read(chunk)) > 0) {
+            while ((read = stream.read(chunk)) > 0)
                 buffer.write(chunk, 0, read);
-            }
             byte[] data = buffer.toByteArray();
             return BitmapRegionDecoder.newInstance(data, 0, data.length, false);
         } catch (Throwable e) {
@@ -532,16 +492,13 @@ public class MapView extends View {
     }
 
     private void requestFullBitmap() {
-        if (fullBitmapRequested || fullBitmap != null || scene == null || released) {
-            return;
-        }
+        if (fullBitmapRequested || fullBitmap != null || scene == null || released) return;
         fullBitmapRequested = true;
         final MapCatalog.Scene target = scene;
         decoderExecutor.execute(() -> {
             Bitmap bitmap = decodeAsset(target.assetPath, 1);
-            if (bitmap == null) {
+            if (bitmap == null)
                 bitmap = decodeAsset(target.assetPath, 2);
-            }
             Bitmap result = bitmap;
             post(() -> {
                 if (released || scene != target) {
@@ -555,15 +512,9 @@ public class MapView extends View {
     }
 
     private void requestRegionRendering() {
-        if (scene == null || released || getWidth() <= 0 || getHeight() <= 0) {
-            return;
-        }
-        if (getSpanMetres() > MAX_REGION_SPAN_M) {
-            return;
-        }
-        if (regionDecoder == null) {
-            return;
-        }
+        if (scene == null || released || getWidth() <= 0 || getHeight() <= 0) return;
+        if (getSpanMetres() > MAX_REGION_SPAN_M) return;
+        if (regionDecoder == null) return;
         final double metresPerPixel = scene.metresPerPixel();
         final double sourceWidth = getSpanMetres() / metresPerPixel;
         final float currentScale = (float) (getWidth() / sourceWidth);
@@ -571,22 +522,16 @@ public class MapView extends View {
         Rect needed = new Rect();
         Rect buffered = new Rect();
         computeSourceRect(sourceWidth, sourceHeight, needed, buffered);
-        if (regionBitmap != null && regionSrc.contains(needed)) {
-            return;
-        }
+        if (regionBitmap != null && regionSrc.contains(needed)) return;
         int key = (buffered.left << 24) ^ (buffered.top << 12) ^ buffered.right ^ (buffered.bottom << 4);
-        if (regionRequestPending && key == requestedRegionKey) {
-            return;
-        }
+        if (regionRequestPending && key == requestedRegionKey) return;
         requestedRegionKey = key;
         regionRequestPending = true;
         final int generation = ++decodeGeneration;
         final Rect request = new Rect(buffered);
         int sample = 1;
-        while ((long) (request.width() / sample) * (request.height() / sample)
-                > MAX_REGION_PIXELS) {
+        while ((long) (request.width() / sample) * (request.height() / sample) > MAX_REGION_PIXELS)
             sample *= 2;
-        }
         final int requestSample = sample;
         final BitmapRegionDecoder decoder = regionDecoder;
         decoderExecutor.execute(() -> {
@@ -617,9 +562,8 @@ public class MapView extends View {
                     invalidate();
                     return;
                 }
-                if (regionBitmap != null && regionBitmap != fullBitmap) {
+                if (regionBitmap != null && regionBitmap != fullBitmap)
                     regionBitmap.recycle();
-                }
                 regionBitmap = result;
                 regionSrc.set(request);
                 invalidate();
@@ -627,11 +571,8 @@ public class MapView extends View {
         });
     }
 
-    private void computeSourceRect(double sourceWidth, double sourceHeight,
-                                   Rect visible, Rect buffered) {
-        if (scene == null) {
-            return;
-        }
+    private void computeSourceRect(double sourceWidth, double sourceHeight, Rect visible, Rect buffered) {
+        if (scene == null) return;
         double centerSourceX = scene.imageX(centerX);
         double centerSourceY = scene.imageY(centerY);
         double visibleLeft = centerSourceX - sourceWidth / 2.0;
@@ -639,8 +580,7 @@ public class MapView extends View {
         clampRect(visible, visibleLeft, visibleTop, sourceWidth, sourceHeight);
         double marginX = sourceWidth * 0.35;
         double marginY = sourceHeight * 0.35;
-        clampRect(buffered, visibleLeft - marginX, visibleTop - marginY,
-                sourceWidth + marginX * 2, sourceHeight + marginY * 2);
+        clampRect(buffered, visibleLeft - marginX, visibleTop - marginY, sourceWidth + marginX * 2, sourceHeight + marginY * 2);
     }
 
     private void clampRect(Rect out, double left, double top, double width, double height) {
@@ -650,38 +590,29 @@ public class MapView extends View {
         }
         int l = (int) Math.floor(Math.max(0, left));
         int t = (int) Math.floor(Math.max(0, top));
-        int r = (int) Math.ceil(Math.min(scene.imageWidth, left + width));
-        int b = (int) Math.ceil(Math.min(scene.imageHeight, top + height));
-        if (r <= l) {
-            r = Math.min(scene.imageWidth, l + 1);
-        }
-        if (b <= t) {
-            b = Math.min(scene.imageHeight, t + 1);
-        }
-        out.set(l, t, r, b);
+        int right = (int) Math.ceil(Math.min(scene.imageWidth, left + width));
+        int bottom = (int) Math.ceil(Math.min(scene.imageHeight, top + height));
+        if (right <= l)
+            right = Math.min(scene.imageWidth, l + 1);
+        if (bottom <= t)
+            bottom = Math.min(scene.imageHeight, t + 1);
+        out.set(l, t, right, bottom);
     }
 
     private void updateTransform() {
-        if (scene == null || getWidth() <= 0 || getHeight() <= 0) {
-            return;
-        }
+        if (scene == null || getWidth() <= 0 || getHeight() <= 0) return;
         double sourceWidth = getSpanMetres() / scene.metresPerPixel();
         double centreSourceX = scene.imageX(centerX);
         double centreSourceY = scene.imageY(centerY);
         double halfWidth = sourceWidth / 2.0;
         double sourceHeight = getHeight() * sourceWidth / getWidth();
         double halfHeight = sourceHeight / 2.0;
-        if (halfWidth * 2 >= scene.imageWidth) {
+        if (halfWidth * 2 >= scene.imageWidth)
             centreSourceX = scene.imageWidth / 2.0;
-        } else {
-            centreSourceX = Math.max(halfWidth, Math.min(scene.imageWidth - halfWidth, centreSourceX));
-        }
-        if (halfHeight * 2 >= scene.imageHeight) {
+        else centreSourceX = Math.max(halfWidth, Math.min(scene.imageWidth - halfWidth, centreSourceX));
+        if (halfHeight * 2 >= scene.imageHeight)
             centreSourceY = scene.imageHeight / 2.0;
-        } else {
-            centreSourceY = Math.max(halfHeight,
-                    Math.min(scene.imageHeight - halfHeight, centreSourceY));
-        }
+        else centreSourceY = Math.max(halfHeight, Math.min(scene.imageHeight - halfHeight, centreSourceY));
         centerX = scene.worldX(centreSourceX);
         centerY = scene.worldY(centreSourceY);
         scale = (float) (getWidth() / sourceWidth);
@@ -692,51 +623,35 @@ public class MapView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if (scene == null) {
-            return;
-        }
+        if (scene == null) return;
         updateTransform();
         if (overview != null) {
-            scratchRect.set(offsetX, offsetY,
-                    offsetX + scene.imageWidth * scale,
-                    offsetY + scene.imageHeight * scale);
+            scratchRect.set(offsetX, offsetY, offsetX + scene.imageWidth * scale, offsetY + scene.imageHeight * scale);
             canvas.drawBitmap(overview, null, scratchRect, bitmapPaint);
         }
-        if (regionBitmap != null && !regionSrc.isEmpty()
-                && getSpanMetres() <= MAX_REGION_SPAN_M) {
-            scratchRect.set(offsetX + regionSrc.left * scale,
-                    offsetY + regionSrc.top * scale,
-                    offsetX + regionSrc.right * scale,
-                    offsetY + regionSrc.bottom * scale);
+        if (regionBitmap != null && !regionSrc.isEmpty() && getSpanMetres() <= MAX_REGION_SPAN_M) {
+            scratchRect.set(offsetX + regionSrc.left * scale, offsetY + regionSrc.top * scale, offsetX + regionSrc.right * scale, offsetY + regionSrc.bottom * scale);
             canvas.drawBitmap(regionBitmap, null, scratchRect, bitmapPaint);
         } else if (fullBitmap != null) {
-            scratchRect.set(offsetX, offsetY,
-                    offsetX + scene.imageWidth * scale,
-                    offsetY + scene.imageHeight * scale);
+            scratchRect.set(offsetX, offsetY, offsetX + scene.imageWidth * scale, offsetY + scene.imageHeight * scale);
             canvas.drawBitmap(fullBitmap, null, scratchRect, bitmapPaint);
         }
-        if (paintVisible && paint != null) {
+        if (paintVisible && paint != null)
             drawPaint(canvas, scene);
-        }
         drawEntityMarkers(canvas, scene);
         drawSelfMarker(canvas, scene);
-        if (scene != null) {
+        if (scene != null)
             requestRegionRendering();
-        }
     }
 
     private void drawPaint(Canvas canvas, MapCatalog.Scene mapScene) {
         int grid = paint.getGridSize();
-        if (grid <= 0) {
-            return;
-        }
+        if (grid <= 0) return;
         double sourceLeft = Math.max(0, -offsetX / scale);
         double sourceTop = Math.max(0, -offsetY / scale);
         double sourceRight = Math.min(mapScene.imageWidth, (getWidth() - offsetX) / scale);
         double sourceBottom = Math.min(mapScene.imageHeight, (getHeight() - offsetY) / scale);
-        if (sourceRight <= sourceLeft || sourceBottom <= sourceTop) {
-            return;
-        }
+        if (sourceRight <= sourceLeft || sourceBottom <= sourceTop) return;
         int fromX = Math.max(0, (int) Math.floor(sourceLeft / mapScene.imageWidth * grid));
         int toX = Math.min(grid - 1, (int) Math.ceil(sourceRight / mapScene.imageWidth * grid));
         int fromY = Math.max(0, (int) Math.floor(sourceTop / mapScene.imageHeight * grid));
@@ -744,32 +659,25 @@ public class MapView extends View {
         int paintedCells = 0;
         for (int cy = fromY; cy <= toY; cy++) {
             for (int cx = fromX; cx <= toX; cx++) {
-                if (paint.isPainted(cx, cy)) {
+                if (paint.isPainted(cx, cy))
                     paintedCells++;
-                }
             }
         }
-        if (paintedCells == 0) {
-            return;
-        }
-        if (paintedCells <= TOO_MANY_CELLS) {
+        if (paintedCells == 0) return;
+        if (paintedCells <= TOO_MANY_CELLS)
             drawPaintCells(canvas, mapScene, grid, fromX, toX, fromY, toY);
-        } else {
-            drawPaintOverlay(canvas, mapScene, grid);
-        }
+        else drawPaintOverlay(canvas, mapScene, grid);
     }
 
-    private void drawPaintCells(Canvas canvas, MapCatalog.Scene mapScene, int grid,
-                                int fromX, int toX, int fromY, int toY) {
+    private void drawPaintCells(Canvas canvas, MapCatalog.Scene mapScene, int grid, int fromX, int toX, int fromY, int toY) {
         float cellW = (float) (mapScene.imageWidth * scale / grid);
         float cellH = (float) (mapScene.imageHeight * scale / grid);
         float edge = Math.max(1f, dp(1.1f));
         edgePaint.setStrokeWidth(edge);
         for (int cy = fromY; cy <= toY; cy++) {
             for (int cx = fromX; cx <= toX; cx++) {
-                if (!paint.isPainted(cx, cy)) {
+                if (!paint.isPainted(cx, cy))
                     continue;
-                }
                 float left = offsetX + cx * cellW;
                 float top = offsetY + cy * cellH;
                 canvas.drawRect(left, top, left + cellW, top + cellH, fillPaint);
@@ -777,39 +685,29 @@ public class MapView extends View {
                 boolean down = paint.isPainted(cx, cy + 1);
                 boolean leftPainted = paint.isPainted(cx - 1, cy);
                 boolean rightPainted = paint.isPainted(cx + 1, cy);
-                if (!up) {
+                if (!up)
                     canvas.drawLine(left, top, left + cellW, top, edgePaint);
-                }
-                if (!down) {
+                if (!down)
                     canvas.drawLine(left, top + cellH, left + cellW, top + cellH, edgePaint);
-                }
-                if (!leftPainted) {
+                if (!leftPainted)
                     canvas.drawLine(left, top, left, top + cellH, edgePaint);
-                }
-                if (!rightPainted) {
+                if (!rightPainted)
                     canvas.drawLine(left + cellW, top, left + cellW, top + cellH, edgePaint);
-                }
             }
         }
     }
 
     private void drawPaintOverlay(Canvas canvas, MapCatalog.Scene mapScene, int grid) {
-        if (paintOverlay == null || paintOverlayVersion != paint.getVersion()) {
+        if (paintOverlay == null || paintOverlayVersion != paint.getVersion())
             rebuildPaintOverlay(grid);
-        }
-        if (paintOverlay == null) {
-            return;
-        }
-        scratchRect.set(offsetX, offsetY,
-                offsetX + mapScene.imageWidth * scale,
-                offsetY + mapScene.imageHeight * scale);
+        if (paintOverlay == null) return;
+        scratchRect.set(offsetX, offsetY, offsetX + mapScene.imageWidth * scale, offsetY + mapScene.imageHeight * scale);
         canvas.drawBitmap(paintOverlay, null, scratchRect, bitmapPaint);
     }
 
     private void rebuildPaintOverlay(int grid) {
-        if (paintOverlay != null) {
+        if (paintOverlay != null)
             paintOverlay.recycle();
-        }
         try {
             paintOverlay = Bitmap.createBitmap(grid, grid, Bitmap.Config.ARGB_8888);
         } catch (Throwable e) {
@@ -819,9 +717,8 @@ public class MapView extends View {
         Canvas overlayCanvas = new Canvas(paintOverlay);
         for (int cy = 0; cy < grid; cy++) {
             for (int cx = 0; cx < grid; cx++) {
-                if (!paint.isPainted(cx, cy)) {
+                if (!paint.isPainted(cx, cy))
                     continue;
-                }
                 overlayCanvas.drawRect(cx, cy, cx + 1, cy + 1, fillPaint);
             }
         }
@@ -829,9 +726,7 @@ public class MapView extends View {
     }
 
     private void drawEntityMarkers(Canvas canvas, MapCatalog.Scene mapScene) {
-        if (entities.isEmpty()) {
-            return;
-        }
+        if (entities.isEmpty()) return;
         float radius = dp(ENTITY_DOT_RADIUS_DP);
         float glowRadius = radius + dp(ENTITY_GLOW_PAD_DP);
         float margin = glowRadius;
@@ -839,16 +734,12 @@ public class MapView extends View {
         int height = getHeight();
         for (int i = 0; i < entities.size(); i++) {
             NearbyEntity entity = entities.get(i);
-            if (entity == null
-                    || !Double.isFinite(entity.worldX)
-                    || !Double.isFinite(entity.worldY)) {
+            if (entity == null || !Double.isFinite(entity.worldX) || !Double.isFinite(entity.worldY))
                 continue;
-            }
             float x = offsetX + (float) (mapScene.imageX(entity.worldX) * scale);
             float y = offsetY + (float) (mapScene.imageY(entity.worldY) * scale);
-            if (x < -margin || y < -margin || x > width + margin || y > height + margin) {
+            if (x < -margin || y < -margin || x > width + margin || y > height + margin)
                 continue;
-            }
             entityFillPaint.setColor(entityColor(entity));
             canvas.drawCircle(x, y, glowRadius, glowPaint);
             canvas.drawCircle(x, y, radius, entityFillPaint);
@@ -856,34 +747,27 @@ public class MapView extends View {
     }
 
     private int entityColor(NearbyEntity entity) {
-        if (entity.hasBadge(Badge.Kind.POLLUTION)) {
+        if (entity.hasBadge(Badge.Kind.POLLUTION))
             return entityPollutionColor;
-        }
-        if (!entity.badges.isEmpty()) {
+        if (!entity.badges.isEmpty())
             return entitySpecialColor;
-        }
         return entityNormalColor;
     }
 
     private void drawSelfMarker(Canvas canvas, MapCatalog.Scene mapScene) {
-        if (!Double.isFinite(selfX) || !Double.isFinite(selfY)) {
-            return;
-        }
+        if (!Double.isFinite(selfX) || !Double.isFinite(selfY)) return;
         float x = offsetX + (float) (mapScene.imageX(selfX) * scale);
         float y = offsetY + (float) (mapScene.imageY(selfY) * scale);
         float radius = dp(PLAYER_DOT_RADIUS_DP);
-        if (x < -radius || y < -radius || x > getWidth() + radius || y > getHeight() + radius) {
-            return;
-        }
+        if (x < -radius || y < -radius || x > getWidth() + radius || y > getHeight() + radius) return;
         canvas.drawCircle(x, y, radius + dp(PLAYER_GLOW_PAD_DP), glowPaint);
         canvas.drawCircle(x, y, radius, markerFillPaint);
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (scene == null) {
+        if (scene == null)
             return super.onTouchEvent(event);
-        }
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 lastTouchX = event.getX();
@@ -895,15 +779,13 @@ public class MapView extends View {
                 pinching = false;
                 pinchPrimaryId = MotionEvent.INVALID_POINTER_ID;
                 pinchSecondaryId = MotionEvent.INVALID_POINTER_ID;
-                if (getParent() != null) {
+                if (getParent() != null)
                     getParent().requestDisallowInterceptTouchEvent(true);
-                }
                 return true;
             case MotionEvent.ACTION_POINTER_DOWN:
                 multiTouch = true;
-                if (!pinching) {
+                if (!pinching)
                     beginPinch(event);
-                }
                 return true;
             case MotionEvent.ACTION_MOVE:
                 if (pinching) {
@@ -934,14 +816,12 @@ public class MapView extends View {
                 lastTouchY = y;
                 return true;
             case MotionEvent.ACTION_POINTER_UP:
-                if (pinching) {
+                if (pinching)
                     endPinch(event);
-                }
                 return true;
             case MotionEvent.ACTION_UP:
-                if (!dragging && !multiTouch) {
+                if (!dragging && !multiTouch)
                     performClick();
-                }
                 finishGesture();
                 return true;
             case MotionEvent.ACTION_CANCEL:
@@ -953,13 +833,9 @@ public class MapView extends View {
     }
 
     private void beginPinch(MotionEvent event) {
-        if (event.getPointerCount() < 2) {
-            return;
-        }
+        if (event.getPointerCount() < 2) return;
         double startDistance = pointerDistance(event, 0, 1);
-        if (!(startDistance > 0)) {
-            return;
-        }
+        if (!(startDistance > 0)) return;
         pinchPrimaryId = event.getPointerId(0);
         pinchSecondaryId = event.getPointerId(1);
         pinchStartDistance = startDistance;
@@ -968,9 +844,8 @@ public class MapView extends View {
         pinching = true;
         enterFreeMode();
         anchorPinch(focusX(event, 0, 1), focusY(event, 0, 1));
-        if (getParent() != null) {
+        if (getParent() != null)
             getParent().requestDisallowInterceptTouchEvent(true);
-        }
     }
 
     private void anchorPinch(float screenX, float screenY) {
@@ -980,10 +855,8 @@ public class MapView extends View {
             return;
         }
         double scale = sourceScale(getSpanMetres());
-        pinchAnchorX = scene.worldX(
-                MapZoomMath.sourceAtScreen(scene.imageX(centerX), screenX, getWidth(), scale));
-        pinchAnchorY = scene.worldY(
-                MapZoomMath.sourceAtScreen(scene.imageY(centerY), screenY, getHeight(), scale));
+        pinchAnchorX = scene.worldX(MapZoomMath.sourceAtScreen(scene.imageX(centerX), screenX, getWidth(), scale));
+        pinchAnchorY = scene.worldY(MapZoomMath.sourceAtScreen(scene.imageY(centerY), screenY, getHeight(), scale));
     }
 
     private void movePinch(MotionEvent event) {
@@ -993,35 +866,26 @@ public class MapView extends View {
             pinching = false;
             return;
         }
-        double target = MapZoomMath.spanForPinch(pinchStartSpan, pinchStartDistance,
-                pointerDistance(event, firstIndex, secondIndex), MIN_SPAN_M, MAX_SPAN_M);
+        double target = MapZoomMath.spanForPinch(pinchStartSpan, pinchStartDistance, pointerDistance(event, firstIndex, secondIndex), MIN_SPAN_M, MAX_SPAN_M);
         boolean zoomed = Math.abs(target - spanMetres) > SPAN_EPSILON_M;
         if (zoomed) {
             spanMetres = target;
-        }
-        applyPinchFocus(focusX(event, firstIndex, secondIndex),
-                focusY(event, firstIndex, secondIndex));
-        if (zoomed) {
             notifyViewport();
         }
+        applyPinchFocus(focusX(event, firstIndex, secondIndex), focusY(event, firstIndex, secondIndex));
         invalidate();
     }
 
     private void applyPinchFocus(float screenX, float screenY) {
-        if (scene == null || getWidth() <= 0 || getHeight() <= 0) {
-            return;
-        }
+        if (scene == null || getWidth() <= 0 || getHeight() <= 0) return;
         double scale = sourceScale(getSpanMetres());
-        centerX = scene.worldX(MapZoomMath.centreForSourceAtScreen(
-                scene.imageX(pinchAnchorX), screenX, getWidth(), scale));
-        centerY = scene.worldY(MapZoomMath.centreForSourceAtScreen(
-                scene.imageY(pinchAnchorY), screenY, getHeight(), scale));
+        centerX = scene.worldX(MapZoomMath.centreForSourceAtScreen(scene.imageX(pinchAnchorX), screenX, getWidth(), scale));
+        centerY = scene.worldY(MapZoomMath.centreForSourceAtScreen(scene.imageY(pinchAnchorY), screenY, getHeight(), scale));
     }
 
     private double sourceScale(double span) {
-        if (scene == null || getWidth() <= 0) {
+        if (scene == null || getWidth() <= 0)
             return 1.0;
-        }
         double sourceWidth = span / scene.metresPerPixel();
         return sourceWidth > 0 ? getWidth() / sourceWidth : 1.0;
     }
@@ -1031,9 +895,8 @@ public class MapView extends View {
         pinchPrimaryId = MotionEvent.INVALID_POINTER_ID;
         pinchSecondaryId = MotionEvent.INVALID_POINTER_ID;
         int keepIndex = event.getActionIndex() == 0 ? 1 : 0;
-        if (keepIndex >= event.getPointerCount()) {
+        if (keepIndex >= event.getPointerCount())
             keepIndex = 0;
-        }
         lastTouchX = event.getX(keepIndex);
         lastTouchY = event.getY(keepIndex);
         downTouchX = lastTouchX;
@@ -1061,9 +924,8 @@ public class MapView extends View {
         multiTouch = false;
         pinchPrimaryId = MotionEvent.INVALID_POINTER_ID;
         pinchSecondaryId = MotionEvent.INVALID_POINTER_ID;
-        if (getParent() != null) {
+        if (getParent() != null)
             getParent().requestDisallowInterceptTouchEvent(false);
-        }
         invalidate();
     }
 
@@ -1074,16 +936,11 @@ public class MapView extends View {
     }
 
     private void notifyViewport() {
-        if (viewportListener == null) {
-            return;
-        }
+        if (viewportListener == null) return;
         String label = getZoomLabel();
         boolean canIn = canZoomIn();
         boolean canOut = canZoomOut();
-        if (label.equals(lastViewportLabel)
-                && canIn == lastCanZoomIn && canOut == lastCanZoomOut) {
-            return;
-        }
+        if (label.equals(lastViewportLabel) && canIn == lastCanZoomIn && canOut == lastCanZoomOut) return;
         lastViewportLabel = label;
         lastCanZoomIn = canIn;
         lastCanZoomOut = canOut;
@@ -1091,9 +948,8 @@ public class MapView extends View {
     }
 
     private void notifyFollow() {
-        if (followListener != null) {
+        if (followListener != null)
             followListener.onFollowChanged(following);
-        }
     }
 
     private float dp(float value) {
@@ -1101,8 +957,7 @@ public class MapView extends View {
     }
 
     private static void recycleQuietly(@Nullable Bitmap bitmap) {
-        if (bitmap != null && !bitmap.isRecycled()) {
+        if (bitmap != null && !bitmap.isRecycled())
             bitmap.recycle();
-        }
     }
 }

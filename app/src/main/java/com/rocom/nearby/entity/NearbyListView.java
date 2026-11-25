@@ -63,22 +63,17 @@ public final class NearbyListView extends LinearLayout {
     }
 
     private void resolveChildren() {
-        if (countView == null) {
+        if (countView == null)
             countView = findViewById(R.id.nearby_count);
-        }
-        if (rowContainer == null) {
+        if (rowContainer == null)
             rowContainer = findViewById(R.id.nearby_rows);
-        }
     }
 
     public void setOnEntityClickListener(@Nullable OnEntityClickListener listener) {
-        if (entityListener == listener) {
-            return;
-        }
+        if (entityListener == listener) return;
         entityListener = listener;
-        for (int i = 0; i < rows.size(); i++) {
+        for (int i = 0; i < rows.size(); i++)
             rows.get(i).applyClick();
-        }
     }
 
     public void setAlertPublishing(boolean enabled) {
@@ -86,14 +81,11 @@ public final class NearbyListView extends LinearLayout {
     }
 
     public void setHeadFlush(boolean flush) {
-        if (headFlush == flush) {
-            return;
-        }
+        if (headFlush == flush) return;
         headFlush = flush;
         applyContentPadding();
-        for (int i = 0; i < rows.size(); i++) {
+        for (int i = 0; i < rows.size(); i++)
             applyRowMargin(i);
-        }
     }
 
     private void applyContentPadding() {
@@ -105,9 +97,8 @@ public final class NearbyListView extends LinearLayout {
         resolveChildren();
         if (rowContainer == null) {
             setVisibility(GONE);
-            if (publishesAlerts) {
+            if (publishesAlerts)
                 NearbyAlertNotification.releaseAll(getContext());
-            }
             return;
         }
         int count = entities == null ? 0 : entities.size();
@@ -117,9 +108,8 @@ public final class NearbyListView extends LinearLayout {
         ArrayList<String> alerts = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             NearbyEntity entity = entities.get(i);
-            if (entity == null || (!hasSelf && !entity.fighting)) {
+            if (entity == null || (!hasSelf && !entity.fighting))
                 continue;
-            }
             rowAt(shown).bind(entity, selfX, selfY, publishesAlerts ? alerts : null);
             counted++;
             shown++;
@@ -127,24 +117,20 @@ public final class NearbyListView extends LinearLayout {
         hideRowsFrom(shown);
         if (shown == 0) {
             setVisibility(GONE);
-            if (publishesAlerts) {
+            if (publishesAlerts)
                 NearbyAlertNotification.releaseAll(getContext());
-            }
             return;
         }
-        if (publishesAlerts) {
+        if (publishesAlerts)
             NearbyAlertNotification.retain(getContext(), alerts);
-        }
-        if (countView != null) {
+        if (countView != null)
             countView.setText(getContext().getString(R.string.nearby_count, counted));
-        }
         setVisibility(VISIBLE);
     }
 
     private Row rowAt(int index) {
         while (rows.size() <= index) {
-            View view = LayoutInflater.from(getContext())
-                    .inflate(R.layout.entity, rowContainer, false);
+            View view = LayoutInflater.from(getContext()).inflate(R.layout.entity, rowContainer, false);
             rowContainer.addView(view);
             rows.add(new Row(view));
             applyRowMargin(rows.size() - 1);
@@ -153,14 +139,10 @@ public final class NearbyListView extends LinearLayout {
     }
 
     private void applyRowMargin(int index) {
-        if (index < 0 || index >= rows.size()) {
-            return;
-        }
+        if (index < 0 || index >= rows.size()) return;
         View root = rows.get(index).root;
         ViewGroup.LayoutParams params = root.getLayoutParams();
-        if (!(params instanceof LinearLayout.LayoutParams)) {
-            return;
-        }
+        if (!(params instanceof LinearLayout.LayoutParams)) return;
         LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) params;
         int target = headFlush && index == 0 ? 0 : rows.get(index).topMarginPx;
         if (layoutParams.topMargin != target) {
@@ -171,21 +153,19 @@ public final class NearbyListView extends LinearLayout {
 
     private static int topMarginOf(View view) {
         ViewGroup.LayoutParams params = view.getLayoutParams();
-        return params instanceof LinearLayout.LayoutParams
-                ? ((LinearLayout.LayoutParams) params).topMargin
-                : 0;
+        return params instanceof LinearLayout.LayoutParams ? ((LinearLayout.LayoutParams) params).topMargin : 0;
     }
 
     private void hideRowsFrom(int firstHidden) {
-        for (int i = firstHidden; i < rows.size(); i++) {
+        for (int i = firstHidden; i < rows.size(); i++)
             rows.get(i).root.setVisibility(GONE);
-        }
     }
 
     private static final int BATTLE_PREPARATION = 10273;
     private static final int BATTLE_PREPARATION_BOSS = 2033697;
     private static final int BATTLE_PREPARATION_TIMED = 2081;
     private static final int BATTLE_PREPARATION_MULTI = 10241;
+    private static final int BATTLE_PREPARATION_PVP = 2049;
     private static final int BATTLE_FIGHTING = 4204837;
     private static final int BATTLE_FIGHTING_BOSS = 4196645;
     private static final int BATTLE_FIGHTING_TIMED = 4196641;
@@ -199,6 +179,7 @@ public final class NearbyListView extends LinearLayout {
             case BATTLE_PREPARATION_BOSS:
             case BATTLE_PREPARATION_TIMED:
             case BATTLE_PREPARATION_MULTI:
+            case BATTLE_PREPARATION_PVP:
                 return R.string.fight_preparation;
             case BATTLE_FIGHTING:
             case BATTLE_FIGHTING_BOSS:
@@ -215,14 +196,12 @@ public final class NearbyListView extends LinearLayout {
     }
 
     private int dp(int value) {
-        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value,
-                getResources().getDisplayMetrics()));
+        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics()));
     }
 
     private String bearingText(int sector) {
-        if (sector < 0 || sector >= bearings.length) {
+        if (sector < 0 || sector >= bearings.length)
             return "";
-        }
         return bearings[sector];
     }
 
@@ -270,8 +249,7 @@ public final class NearbyListView extends LinearLayout {
             voiceLabel.setText(R.string.nearby_voice_label);
         }
 
-        void bind(NearbyEntity entity, double selfX, double selfY,
-                  @Nullable Collection<String> alerts) {
+        void bind(NearbyEntity entity, double selfX, double selfY, @Nullable Collection<String> alerts) {
             root.setVisibility(VISIBLE);
             boundEntity = entity;
             String identity = entity.identityKey();
@@ -283,9 +261,7 @@ public final class NearbyListView extends LinearLayout {
             if (entity.level > 0) {
                 level.setText(getContext().getString(R.string.nearby_level, entity.level));
                 level.setVisibility(VISIBLE);
-            } else {
-                level.setVisibility(GONE);
-            }
+            } else level.setVisibility(GONE);
             bindBadges(entity, alerts);
             bindGender(entity);
             if (entity.fighting) {
@@ -300,28 +276,20 @@ public final class NearbyListView extends LinearLayout {
                 double dx = entity.worldX - selfX;
                 double dy = entity.worldY - selfY;
                 bearing.setText(bearingText(NearbyEntityFormat.bearingIndex(dx, dy)));
-                distance.setText(NearbyEntityFormat.distance(
-                        NearbyEntityFormat.distanceMeters(dx, dy)));
+                distance.setText(NearbyEntityFormat.distance(NearbyEntityFormat.distanceMeters(dx, dy)));
             }
-            height.setText(NearbyEntityFormat.height(entity.heightMeters,
-                    entity.heightPercentile));
-            weight.setText(NearbyEntityFormat.weight(entity.weightKg,
-                    entity.weightPercentile));
+            height.setText(NearbyEntityFormat.height(entity.heightMeters, entity.heightPercentile));
+            weight.setText(NearbyEntityFormat.weight(entity.weightKg, entity.weightPercentile));
             voice.setText(NearbyEntityFormat.voice(entity.voice));
-            weight.setTextColor(hotColor(entity.weightPercentile
-                    >= NearbyEntity.WEIGHT_PERCENTILE_BIG
-                    || entity.weightPercentile <= NearbyEntity.WEIGHT_PERCENTILE_SMALL));
-            voice.setTextColor(hotColor(entity.voice >= NearbyEntity.VOICE_HIGH
-                    || entity.voice <= NearbyEntity.VOICE_LOW));
-            if (entity.fighting) {
+            weight.setTextColor(hotColor(entity.weightPercentile >= NearbyEntity.WEIGHT_PERCENTILE_BIG || entity.weightPercentile <= NearbyEntity.WEIGHT_PERCENTILE_SMALL));
+            voice.setTextColor(hotColor(entity.voice >= NearbyEntity.VOICE_HIGH || entity.voice <= NearbyEntity.VOICE_LOW));
+            if (entity.fighting)
                 root.setBackgroundResource(R.drawable.bg_entity_fight);
-            } else if (entity.hasBadge(Badge.Kind.POLLUTION)) {
+            else if (entity.hasBadge(Badge.Kind.POLLUTION))
                 root.setBackgroundResource(R.drawable.bg_entity_pollution);
-            } else if (!entity.badges.isEmpty()) {
+            else if (!entity.badges.isEmpty())
                 root.setBackgroundResource(R.drawable.bg_entity_special);
-            } else {
-                root.setBackgroundResource(R.drawable.bg_entity_normal);
-            }
+            else root.setBackgroundResource(R.drawable.bg_entity_normal);
             applyClick();
         }
 
@@ -332,27 +300,22 @@ public final class NearbyListView extends LinearLayout {
                 for (int i = 0; i < badges.size(); i++) {
                     Badge badge = badges.get(i);
                     CharSequence text = badgeLabel(badge);
-                    if (text.length() == 0) {
+                    if (text.length() == 0)
                         continue;
-                    }
                     TextView chip = chipAt(shown);
                     chip.setText(text);
-                    chip.setBackgroundResource(badge.kind == Badge.Kind.POLLUTION
-                            ? R.drawable.badge_pollution : R.drawable.badge);
+                    chip.setBackgroundResource(badge.kind == Badge.Kind.POLLUTION ? R.drawable.badge_pollution : R.drawable.badge);
                     chip.setVisibility(VISIBLE);
                     if (alerts != null) {
-                        String alert = NearbyAlertNotification.announceBadge(
-                                getContext(), entity, badge);
-                        if (alert != null) {
+                        String alert = NearbyAlertNotification.announceBadge(getContext(), entity, badge);
+                        if (alert != null)
                             alerts.add(alert);
-                        }
                     }
                     shown++;
                 }
             }
-            for (int i = shown; i < badgeChips.size(); i++) {
+            for (int i = shown; i < badgeChips.size(); i++)
                 badgeChips.get(i).setVisibility(GONE);
-            }
             applyChipGaps(shown);
             badgeGroup.setVisibility(shown == 0 ? GONE : VISIBLE);
         }
@@ -362,9 +325,8 @@ public final class NearbyListView extends LinearLayout {
             for (int i = 0; i < badgeChips.size(); i++) {
                 TextView chip = badgeChips.get(i);
                 ViewGroup.LayoutParams params = chip.getLayoutParams();
-                if (!(params instanceof LinearLayout.LayoutParams)) {
+                if (!(params instanceof LinearLayout.LayoutParams))
                     continue;
-                }
                 LinearLayout.LayoutParams layoutParams = (LinearLayout.LayoutParams) params;
                 int target = i < shown - 1 ? gap : 0;
                 if (layoutParams.rightMargin != target) {
@@ -382,9 +344,7 @@ public final class NearbyListView extends LinearLayout {
             } else if (entity.gender == NearbyEntity.GENDER_FEMALE) {
                 gender.setImageResource(R.drawable.female);
                 visible = true;
-            } else {
-                visible = false;
-            }
+            } else visible = false;
             gender.setVisibility(visible ? VISIBLE : GONE);
             ViewGroup.LayoutParams params = level.getLayoutParams();
             if (params instanceof LinearLayout.LayoutParams) {
@@ -427,9 +387,8 @@ public final class NearbyListView extends LinearLayout {
         private CharSequence bloodlineLabel(int id) {
             String[] names = getResources().getStringArray(R.array.bloodline);
             int index = id - 1;
-            if (index < 0 || index >= names.length) {
+            if (index < 0 || index >= names.length)
                 return "";
-            }
             return names[index].trim();
         }
 
@@ -437,20 +396,16 @@ public final class NearbyListView extends LinearLayout {
             String[] names = getResources().getStringArray(R.array.nature);
             String[] effects = getResources().getStringArray(R.array.nature_effect);
             int index = id - 1;
-            if (index < 0 || index >= names.length || index >= effects.length) {
+            if (index < 0 || index >= names.length || index >= effects.length)
                 return "";
-            }
             String natureName = names[index].trim();
             String effect = effects[index].trim();
-            if (!withEffect) {
+            if (!withEffect)
                 return natureName;
-            }
-            if (natureName.length() == 0) {
+            if (natureName.length() == 0)
                 return effect;
-            }
-            if (effect.length() == 0) {
+            if (effect.length() == 0)
                 return natureName;
-            }
             return getContext().getString(R.string.badge_nature_format, natureName, effect);
         }
 
@@ -474,18 +429,15 @@ public final class NearbyListView extends LinearLayout {
             root.setOnClickListener(view -> {
                 NearbyEntity current = boundEntity;
                 OnEntityClickListener target = entityListener;
-                if (current != null && target != null) {
+                if (current != null && target != null)
                     target.onEntityClick(current);
-                }
             });
             root.setClickable(true);
         }
 
         private void toggleNature() {
             NearbyEntity entity = boundEntity;
-            if (entity == null) {
-                return;
-            }
+            if (entity == null) return;
             natureExpanded = !natureExpanded;
             bindBadges(entity, null);
         }
@@ -493,9 +445,7 @@ public final class NearbyListView extends LinearLayout {
         private TextView chipAt(int index) {
             while (badgeChips.size() <= index) {
                 TextView chip = new TextView(getContext());
-                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT);
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
                 chip.setLayoutParams(params);
                 chip.setBackgroundResource(R.drawable.badge);
                 chip.setGravity(Gravity.CENTER);

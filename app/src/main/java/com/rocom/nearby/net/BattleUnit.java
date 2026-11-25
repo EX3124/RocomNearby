@@ -1,7 +1,7 @@
 package com.rocom.nearby.net;
 
 final class BattleUnit {
-    
+
     final long gid;
     final long speciesId;
     final long confId;
@@ -16,9 +16,7 @@ final class BattleUnit {
     final long battlestate;
     final long battleorder;
 
-    BattleUnit(long gid, long speciesId, long confId, long level,
-               long height, long weight, long voice, long nature,
-               long variant, long bloodLine, long gender, long battlestate, long battleorder) {
+    BattleUnit(long gid, long speciesId, long confId, long level, long height, long weight, long voice, long nature, long variant, long bloodLine, long gender, long battlestate, long battleorder) {
         this.gid = gid;
         this.speciesId = speciesId;
         this.confId = confId;

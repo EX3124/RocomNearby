@@ -60,9 +60,8 @@ public final class OverlayResizeGrip extends View {
             case MotionEvent.ACTION_DOWN:
                 return begin(event);
             case MotionEvent.ACTION_MOVE:
-                if (!resizing) {
+                if (!resizing)
                     return false;
-                }
                 resize(event);
                 return true;
             case MotionEvent.ACTION_UP:
@@ -74,18 +73,15 @@ public final class OverlayResizeGrip extends View {
     }
 
     private boolean begin(MotionEvent event) {
-        if (content == null) {
+        if (content == null)
             return false;
-        }
         WindowManager.LayoutParams params = windowParams();
-        if (params == null) {
+        if (params == null)
             return false;
-        }
         int width = content.getWidth();
         int height = content.getHeight();
-        if (width <= 0 || height <= 0) {
+        if (width <= 0 || height <= 0)
             return false;
-        }
         startWidth = width;
         startHeight = height;
         startWindowX = params.x;
@@ -97,48 +93,38 @@ public final class OverlayResizeGrip extends View {
     }
 
     private void resize(MotionEvent event) {
-        if (content == null) {
-            return;
-        }
+        if (content == null) return;
         WindowManager.LayoutParams params = windowParams();
-        if (params == null) {
-            return;
-        }
+        if (params == null) return;
         int dx = Math.round(event.getRawX() - downRawX);
         int dy = Math.round(event.getRawY() - downRawY);
         int width = corner == CORNER_START ? startWidth - dx : startWidth + dx;
         int height = startHeight + dy;
         int screenWidth = resolveScreenWidth(getContext());
         int screenHeight = resolveScreenHeight(getContext());
-        int maxWidth = corner == CORNER_START
-                ? startWindowX + startWidth
-                : screenWidth - startWindowX;
+        int maxWidth = corner == CORNER_START ? startWindowX + startWidth : screenWidth - startWindowX;
         int maxHeight = screenHeight - startWindowY;
         width = clamp(width, minimumWidth(), maxWidth);
         height = clamp(height, minimumHeight(), maxHeight);
         int x = corner == CORNER_START ? startWindowX + (startWidth - width) : params.x;
         ViewGroup.LayoutParams layout = content.getLayoutParams();
-        boolean sizeChanged = layout != null
-                && (layout.width != width || layout.height != height);
+        boolean sizeChanged = layout != null && (layout.width != width || layout.height != height);
         if (sizeChanged) {
             layout.width = width;
             layout.height = height;
             content.setLayoutParams(layout);
         }
-        if ((sizeChanged || x != params.x) && floatTag != null) {
+        if ((sizeChanged || x != params.x) && floatTag != null)
             EasyFloat.updateFloat(floatTag, x, params.y, width, height);
-        }
     }
 
     private boolean finish() {
-        if (!resizing) {
+        if (!resizing)
             return false;
-        }
         resizing = false;
         final View body = content;
-        if (body != null) {
+        if (body != null)
             body.post(() -> NearbyOverlay.onOverlayResized(body));
-        }
         return true;
     }
 
@@ -147,9 +133,8 @@ public final class OverlayResizeGrip extends View {
     }
 
     static WindowManager.LayoutParams windowParamsOf(View content) {
-        if (content == null) {
+        if (content == null)
             return null;
-        }
         View root = content;
         ViewParent parent = root.getParent();
         while (parent instanceof View) {
@@ -157,9 +142,7 @@ public final class OverlayResizeGrip extends View {
             parent = root.getParent();
         }
         ViewGroup.LayoutParams params = root.getLayoutParams();
-        return params instanceof WindowManager.LayoutParams
-                ? (WindowManager.LayoutParams) params
-                : null;
+        return params instanceof WindowManager.LayoutParams ? (WindowManager.LayoutParams) params : null;
     }
 
     private static int resolveScreenWidth(Context context) {
@@ -171,8 +154,7 @@ public final class OverlayResizeGrip extends View {
     }
 
     static Point resolveScreenSize(Context context) {
-        Context appContext = context.getApplicationContext() != null
-                ? context.getApplicationContext() : context;
+        Context appContext = context.getApplicationContext() != null ? context.getApplicationContext() : context;
         Display display = defaultDisplay(appContext);
         if (display == null) {
             DisplayMetrics metrics = appContext.getResources().getDisplayMetrics();
@@ -185,11 +167,8 @@ public final class OverlayResizeGrip extends View {
             if (mode != null) {
                 int physicalWidth = mode.getPhysicalWidth();
                 int physicalHeight = mode.getPhysicalHeight();
-                if (physicalWidth > 0 && physicalHeight > 0) {
-                    return sideways
-                            ? new Point(physicalHeight, physicalWidth)
-                            : new Point(physicalWidth, physicalHeight);
-                }
+                if (physicalWidth > 0 && physicalHeight > 0)
+                    return sideways ? new Point(physicalHeight, physicalWidth) : new Point(physicalWidth, physicalHeight);
             }
             DisplayMetrics metrics = new DisplayMetrics();
             display.getRealMetrics(metrics);
@@ -201,12 +180,10 @@ public final class OverlayResizeGrip extends View {
     }
 
     private static Point orient(int width, int height, boolean sideways) {
-        if (width <= 0 || height <= 0) {
+        if (width <= 0 || height <= 0)
             return new Point(width, height);
-        }
-        if (sideways != (width < height)) {
+        if (sideways != (width < height))
             return new Point(width, height);
-        }
         int longSide = Math.max(width, height);
         int shortSide = Math.min(width, height);
         return sideways ? new Point(longSide, shortSide) : new Point(shortSide, longSide);
@@ -215,19 +192,15 @@ public final class OverlayResizeGrip extends View {
     @SuppressWarnings("deprecation")
     private static Display defaultDisplay(Context context) {
         try {
-            DisplayManager manager =
-                    (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
+            DisplayManager manager = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
             if (manager != null) {
                 Display display = manager.getDisplay(Display.DEFAULT_DISPLAY);
-                if (display != null) {
+                if (display != null)
                     return display;
-                }
             }
-        } catch (Throwable ignored) {
-        }
+        } catch (Throwable ignored) {}
         try {
-            WindowManager windowManager =
-                    (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+            WindowManager windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
             return windowManager != null ? windowManager.getDefaultDisplay() : null;
         } catch (Throwable ignored) {
             return null;
@@ -254,29 +227,22 @@ public final class OverlayResizeGrip extends View {
         private int height;
 
         void capture(final View body) {
-            if (tryMeasure(body)) {
-                return;
-            }
+            if (tryMeasure(body)) return;
             body.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
                 @Override
-                public void onLayoutChange(View view, int left, int top, int right, int bottom,
-                                           int oldLeft, int oldTop, int oldRight, int oldBottom) {
-                    if (tryMeasure(view)) {
+                public void onLayoutChange(View view, int left, int top, int right, int bottom, int oldLeft, int oldTop, int oldRight, int oldBottom) {
+                    if (tryMeasure(view))
                         view.removeOnLayoutChangeListener(this);
-                    }
                 }
             });
         }
 
         private boolean tryMeasure(View body) {
-            if (measured) {
-                return true;
-            }
+            if (measured) return true;
             int measuredWidth = body.getWidth();
             int measuredHeight = body.getHeight();
-            if (measuredWidth <= 0 || measuredHeight <= 0) {
+            if (measuredWidth <= 0 || measuredHeight <= 0)
                 return false;
-            }
             width = measuredWidth;
             height = measuredHeight;
             measured = true;

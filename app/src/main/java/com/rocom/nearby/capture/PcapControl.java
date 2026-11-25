@@ -5,10 +5,8 @@ import android.content.Intent;
 public final class PcapControl {
 
     public static final String PCAPDROID_PACKAGE = "com.emanuelef.remote_capture";
-    public static final String CAPTURE_CTRL_ACTIVITY =
-            "com.emanuelef.remote_capture.activities.CaptureCtrl";
-    public static final String ACTION_CAPTURE_STATUS =
-            "com.emanuelef.remote_capture.CaptureStatus";
+    public static final String CAPTURE_CTRL_ACTIVITY = "com.emanuelef.remote_capture.activities.CaptureCtrl";
+    public static final String ACTION_CAPTURE_STATUS = "com.emanuelef.remote_capture.CaptureStatus";
     public static final String EXTRA_ACTION = "action";
     public static final String ACTION_START = "start";
     public static final String ACTION_STOP = "stop";
@@ -24,16 +22,13 @@ public final class PcapControl {
         intent.putExtra("full_payload", true);
         intent.putExtra("ip_mode", "both");
         intent.putExtra("snaplen", 262144);
-        intent.putExtra("broadcast_receiver",
-                "com.rocom.nearby.capture.PcapStatusReceiver");
+        intent.putExtra("broadcast_receiver", "com.rocom.nearby.capture.PcapStatusReceiver");
         return intent;
     }
 
     public static Intent buildStopIntent() {
         Intent intent = baseControlIntent(ACTION_STOP);
-        
-        intent.putExtra("broadcast_receiver",
-                "com.rocom.nearby.capture.PcapStatusReceiver");
+        intent.putExtra("broadcast_receiver", "com.rocom.nearby.capture.PcapStatusReceiver");
         return intent;
     }
 

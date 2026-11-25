@@ -3,43 +3,37 @@ package com.rocom.nearby.entity;
 import java.util.Locale;
 
 public final class NearbyEntityFormat {
-    
+
     public static String distance(double meters) {
-        if (!Double.isFinite(meters) || meters < 0) {
+        if (!Double.isFinite(meters) || meters < 0)
             return "";
-        }
-        if (meters < 1000) {
+        if (meters < 1000)
             return Math.round(meters) + "m";
-        }
         return String.format(Locale.US, "%.1fkm", meters / 1000.0);
     }
-    
+
     public static String height(double meters, double percentile) {
-        if (!Double.isFinite(meters) || meters <= 0) {
+        if (!Double.isFinite(meters) || meters <= 0)
             return "";
-        }
         return String.format(Locale.US, "%.2fm", meters) + percent(percentile, 0);
     }
-    
+
     public static String weight(double kg, double percentile) {
-        if (!Double.isFinite(kg) || kg <= 0) {
+        if (!Double.isFinite(kg) || kg <= 0)
             return "";
-        }
         return String.format(Locale.US, "%.2fkg", kg) + percent(percentile, 1);
     }
-    
+
     private static String percent(double percentile, int decimals) {
-        if (!Double.isFinite(percentile)) {
+        if (!Double.isFinite(percentile))
             return "";
-        }
         double clamped = Math.max(0.0, Math.min(100.0, percentile));
         return String.format(Locale.US, "(%." + decimals + "f%%)", clamped);
     }
-    
+
     public static String voice(double voice) {
-        if (!Double.isFinite(voice)) {
+        if (!Double.isFinite(voice))
             return "";
-        }
         return Math.round(voice) + "dB";
     }
 

@@ -10,21 +10,17 @@ final class TcpReassembler {
     private final TreeMap<Long, byte[]> pending = new TreeMap<>();
 
     byte[] feed(long sequence, byte[] payload) {
-        if (payload == null || payload.length == 0) {
+        if (payload == null || payload.length == 0)
             return new byte[0];
-        }
-        if (nextSequence < 0) {
+        if (nextSequence < 0)
             nextSequence = sequence;
-        }
         long end = sequence + payload.length;
-        if (end <= nextSequence) {
+        if (end <= nextSequence)
             return new byte[0];
-        }
         if (sequence < nextSequence) {
             int skip = (int) (nextSequence - sequence);
-            if (skip >= payload.length) {
+            if (skip >= payload.length)
                 return new byte[0];
-            }
             byte[] trimmed = new byte[payload.length - skip];
             System.arraycopy(payload, skip, trimmed, 0, trimmed.length);
             payload = trimmed;
@@ -32,9 +28,8 @@ final class TcpReassembler {
         }
         if (sequence > nextSequence) {
             byte[] old = pending.get(sequence);
-            if (old == null || payload.length > old.length) {
+            if (old == null || payload.length > old.length)
                 pending.put(sequence, payload);
-            }
             return new byte[0];
         }
         ByteArrayOutputStream out = new ByteArrayOutputStream(payload.length);
@@ -54,9 +49,7 @@ final class TcpReassembler {
                 pending.pollFirstEntry();
                 continue;
             }
-            if (sequence > nextSequence) {
-                return;
-            }
+            if (sequence > nextSequence) return;
             int skip = (int) (nextSequence - sequence);
             out.write(payload, skip, payload.length - skip);
             nextSequence += payload.length - skip;

@@ -1,7 +1,5 @@
 package com.rocom.nearby.net;
 
-import android.util.Log;
-
 import com.rocom.nearby.entity.NearbyEntity;
 
 import java.util.Arrays;
@@ -15,7 +13,6 @@ final class GameSession {
         void onEntities(List<NearbyEntity> entities);
     }
 
-    private static final String TAG = "NearbySession";
     private final Listener listener;
     private final GameCrypto crypto = new GameCrypto();
     private final NearbyTracker tracker = new NearbyTracker();
@@ -37,22 +34,13 @@ final class GameSession {
             }
             return;
         }
-        if (kind != 0x4013) {
-            return;
-        }
+        if (kind != 0x4013) return;
         int bodyOffset = frame.headerLength;
         int bodyLength = frame.bodyLength;
-        if (bodyOffset < 0 || bodyLength <= 0
-                || bodyOffset + bodyLength > frame.raw.length) {
-            return;
-        }
+        if (bodyOffset < 0 || bodyLength <= 0 || bodyOffset + bodyLength > frame.raw.length) return;
         byte[] plain = crypto.decrypt(frame.raw, bodyOffset, bodyLength);
-        if (plain == null) {
-            return;
-        }
-        boolean marker = plain.length >= 6
-                && (plain[4] & 0xFF) == 0x55
-                && (plain[5] & 0xFF) == 0xAA;
+        if (plain == null) return;
+        boolean marker = plain.length >= 6 && (plain[4] & 0xFF) == 0x55 && (plain[5] & 0xFF) == 0xAA;
         if ("s2c".equals(direction)) {
             if (!keyVerified) {
                 if (!marker) {
@@ -60,21 +48,15 @@ final class GameSession {
                     return;
                 }
                 keyVerified = true;
-            } else if (!marker) {
-                return;
-            }
+            } else if (!marker) return;
         }
         int opcodeOffset = "s2c".equals(direction) ? 2 : 6;
-        if (plain.length < opcodeOffset + 2) {
-            return;
-        }
-        int opcode = ((plain[opcodeOffset] & 0xFF) << 8)
-                | (plain[opcodeOffset + 1] & 0xFF);
+        if (plain.length < opcodeOffset + 2) return;
+        int opcode = ((plain[opcodeOffset] & 0xFF) << 8) | (plain[opcodeOffset + 1] & 0xFF);
         if (opcode == 330 || opcode == 1043 || opcode == 1044) {
             long now = System.currentTimeMillis();
-            if (tracker.consume(opcode, plain, now)) {
+            if (tracker.consume(opcode, plain, now))
                 listener.onEntities(tracker.snapshot(now));
-            }
             return;
         }
         boolean battle = BattleTracker.handles(opcode);
@@ -82,23 +64,18 @@ final class GameSession {
         if (battle || caught) {
             long now = System.currentTimeMillis();
             boolean changed = false;
-            if (battle) {
+            if (battle)
                 changed = tracker.consumeBattle(opcode, plain, now);
-            }
             if (caught) {
                 List<CaughtParser.Caught> dossiers = CaughtParser.parse(plain);
                 if (!dossiers.isEmpty()) {
                     int removed = tracker.consumeCaught(dossiers, now);
-                    if (removed > 0) {
-                        Log.i(TAG, "获得帧 opcode=" + opcode + " 档案="
-                                + dossiers.size() + " 删卡=" + removed);
+                    if (removed > 0)
                         changed = true;
-                    }
                 }
             }
-            if (changed) {
+            if (changed)
                 listener.onEntities(tracker.snapshot(now));
-            }
             return;
         }
         if ("c2s".equals(direction) && opcode == 307) {
@@ -135,9 +112,7 @@ final class GameSession {
     }
 
     private void notifyIfReady() {
-        if (sceneId <= 0 || !Double.isFinite(selfX) || !Double.isFinite(selfY)) {
-            return;
-        }
+        if (sceneId <= 0 || !Double.isFinite(selfX) || !Double.isFinite(selfY)) return;
         listener.onMapPosition(sceneId, selfX, selfY);
     }
 }

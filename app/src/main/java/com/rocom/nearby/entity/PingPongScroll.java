@@ -35,14 +35,12 @@ public class PingPongScroll extends HorizontalScrollView {
 
     public PingPongScroll(Context context, AttributeSet attrs) {
         super(context, attrs);
-        
         setHorizontalScrollBarEnabled(false);
         setVerticalScrollBarEnabled(false);
         setFillViewport(false);
         setOverScrollMode(OVER_SCROLL_NEVER);
         setFocusable(false);
-        pixelsPerMs = SCROLL_DP_PER_SECOND
-                * context.getResources().getDisplayMetrics().density / 1000f;
+        pixelsPerMs = SCROLL_DP_PER_SECOND * context.getResources().getDisplayMetrics().density / 1000f;
     }
 
     @Override
@@ -64,9 +62,8 @@ public class PingPongScroll extends HorizontalScrollView {
     @Override
     public void onVisibilityAggregated(boolean isVisible) {
         super.onVisibilityAggregated(isVisible);
-        if (isVisible) {
+        if (isVisible)
             syncScroll();
-        }
     }
 
     @Override
@@ -76,13 +73,11 @@ public class PingPongScroll extends HorizontalScrollView {
     }
 
     private int scrollRange() {
-        if (getChildCount() == 0) {
+        if (getChildCount() == 0)
             return 0;
-        }
         View content = getChildAt(0);
-        if (content.getVisibility() != VISIBLE) {
+        if (content.getVisibility() != VISIBLE)
             return 0;
-        }
         int visible = getWidth() - getPaddingLeft() - getPaddingRight();
         return Math.max(0, content.getMeasuredWidth() - visible);
     }
@@ -98,15 +93,11 @@ public class PingPongScroll extends HorizontalScrollView {
         if (range > 0 && isShown() && getWindowVisibility() == VISIBLE) {
             lastFrameAt = SystemClock.uptimeMillis();
             scheduleFrame();
-        } else {
-            stopFrames();
-        }
+        } else stopFrames();
     }
 
     private void scheduleFrame() {
-        if (frameScheduled) {
-            return;
-        }
+        if (frameScheduled) return;
         frameScheduled = true;
         postDelayed(tick, FRAME_MS);
     }
@@ -130,13 +121,11 @@ public class PingPongScroll extends HorizontalScrollView {
         }
         long elapsed = now - lastFrameAt;
         lastFrameAt = now;
-        if (elapsed > MAX_FRAME_MS) {
+        if (elapsed > MAX_FRAME_MS)
             elapsed = MAX_FRAME_MS;
-        }
         int delta = Math.round(pixelsPerMs * elapsed);
-        if (delta < 1) {
+        if (delta < 1)
             delta = 1;
-        }
         int x = getScrollX() + direction * delta;
         if (x >= range) {
             x = range;

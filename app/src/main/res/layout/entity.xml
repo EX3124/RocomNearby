@@ -92,7 +92,6 @@
             android:id="@+id/entity_fight"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/fight_fighting"
             android:textColor="@color/text"
             android:textSize="12sp"
             android:textStyle="bold" />

@@ -61,7 +61,6 @@ public class MainActivity extends AppCompatActivity {
     private static final String STATE_MAP_SPAN = "map_span";
     public static final String EXTRA_OPEN_MAP = "com.rocom.nearby.extra.OPEN_MAP";
     public static final String EXTRA_TRACK_ENTITY = "com.rocom.nearby.extra.TRACK_ENTITY";
-    
     private enum Phase {
         IDLE,
         PREPARING,
@@ -70,7 +69,6 @@ public class MainActivity extends AppCompatActivity {
         STOPPING,
         ERROR
     }
-
     private View emptyCard;
     private View actionRow;
     private NestedScrollView scrollView;
@@ -87,8 +85,7 @@ public class MainActivity extends AppCompatActivity {
     private Button mapButton;
     private MapCardView mapCard;
     private NearbyListView nearbyList;
-    private final NearbyListView.OnEntityClickListener trackEntityListener =
-            this::onEntityCardTapped;
+    private final NearbyListView.OnEntityClickListener trackEntityListener = this::onEntityCardTapped;
     private SharedPreferences preferences;
     private String defaultTarget;
     private String lastValidTarget;
@@ -121,9 +118,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onServerReady(int port) {
-            if (phase != Phase.PREPARING) {
-                return;
-            }
+            if (phase != Phase.PREPARING) return;
             mainHandler.removeCallbacks(serviceStartTimeout);
             localPort = port;
             phase = Phase.REQUESTING;
@@ -161,9 +156,8 @@ public class MainActivity extends AppCompatActivity {
         updateSceneSubtitle();
         defaultTarget = getString(R.string.target_default);
         lastValidTarget = preferences.getString(KEY_TARGET, defaultTarget);
-        if (!CaptureTarget.isValid(lastValidTarget)) {
+        if (!CaptureTarget.isValid(lastValidTarget))
             lastValidTarget = defaultTarget;
-        }
         captureTarget = CaptureTarget.parse(lastValidTarget);
         targetInput.setText(lastValidTarget);
         targetInput.clearFocus();
@@ -188,9 +182,8 @@ public class MainActivity extends AppCompatActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         boolean requested = readTrackRequest(intent);
-        if (requested) {
+        if (requested)
             applyNearbySnapshot(NearbyRuntime.current());
-        }
     }
 
     @Override
@@ -198,9 +191,8 @@ public class MainActivity extends AppCompatActivity {
         mainHandler.removeCallbacks(serviceStartTimeout);
         NearbyRuntime.clearListener(nearbyListener);
         NearbyAlertNotification.releaseAll(this);
-        if (mapCard != null) {
+        if (mapCard != null)
             mapCard.release();
-        }
         super.onDestroy();
     }
 
@@ -233,15 +225,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void requestNotificationPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            return;
-        }
-        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                == PackageManager.PERMISSION_GRANTED) {
-            return;
-        }
-        requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},
-                REQUEST_POST_NOTIFICATIONS);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return;
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return;
+        requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQUEST_POST_NOTIFICATIONS);
     }
 
     private void bindViews() {
@@ -270,9 +256,8 @@ public class MainActivity extends AppCompatActivity {
                 result -> {
                     if (result.getResultCode() == RESULT_OK) {
                         authorized = true;
-                        if (phase == Phase.REQUESTING || phase == Phase.PREPARING) {
+                        if (phase == Phase.REQUESTING || phase == Phase.PREPARING)
                             phase = Phase.REQUESTING;
-                        }
                         render();
                     } else {
                         authorized = false;
@@ -296,9 +281,8 @@ public class MainActivity extends AppCompatActivity {
         View.OnClickListener focusTarget = view -> focusTargetInput();
         targetRow.setOnClickListener(focusTarget);
         targetInput.setOnFocusChangeListener((view, hasFocus) -> {
-            if (!hasFocus) {
+            if (!hasFocus)
                 commitTarget(false);
-            }
         });
         targetInput.setOnEditorActionListener((view, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_DONE) {
@@ -315,19 +299,16 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupActions() {
         actionButton.setOnClickListener(view -> {
-            if (phase == Phase.PREPARING || phase == Phase.CAPTURING
-                    || phase == Phase.REQUESTING || phase == Phase.STOPPING) {
+            if (phase == Phase.PREPARING || phase == Phase.CAPTURING || phase == Phase.REQUESTING || phase == Phase.STOPPING)
                 stopCaptureFlow();
-            } else if (phase == Phase.IDLE || phase == Phase.ERROR) {
+            else if (phase == Phase.IDLE || phase == Phase.ERROR)
                 startCaptureFlow();
-            }
         });
         overlayButton.setOnClickListener(view -> toggleOverlayWindow());
         mapButton.setOnClickListener(view -> toggleMapSection());
         stopButton.setOnClickListener(view -> {
-            if (isCaptureActive()) {
+            if (isCaptureActive())
                 stopCaptureFlow();
-            }
         });
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -337,11 +318,9 @@ public class MainActivity extends AppCompatActivity {
                     hideKeyboard();
                     return;
                 }
-                if (isCaptureActive()) {
+                if (isCaptureActive())
                     moveTaskToBack(true);
-                } else {
-                    finish();
-                }
+                else finish();
             }
         });
     }
@@ -349,9 +328,8 @@ public class MainActivity extends AppCompatActivity {
     private void applyNearbySnapshot(NearbyRuntime.Snapshot newSnapshot) {
         nearby = newSnapshot;
         sceneId = Math.max(0, newSnapshot.sceneId);
-        if (sceneId == 0) {
+        if (sceneId == 0)
             mapVisible = false;
-        }
         updateMapContent();
         updateNearbyList();
         updateEmptyCardVisibility();
@@ -360,59 +338,42 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void toggleMapSection() {
-        if (!hasLivePosition()) {
-            return;
-        }
+        if (!hasLivePosition()) return;
         mapVisible = !mapVisible;
         updateMapContent();
         updateSceneSubtitle();
         updateActionRow();
-        if (mapVisible && mapCard != null && scrollView != null
-                && mapCard.getParent() == contentContainer) {
+        if (mapVisible && mapCard != null && scrollView != null && mapCard.getParent() == contentContainer)
             scrollView.post(() -> scrollView.smoothScrollTo(0, mapScrollTarget()));
-        }
     }
 
     private int mapScrollTarget() {
-        if (mapCard == null || contentContainer == null) {
+        if (mapCard == null || contentContainer == null)
             return 0;
-        }
         int target = mapCard.getTop() - contentContainer.getPaddingTop();
         return Math.max(0, target);
     }
 
     private void clampScrollToContent() {
-        if (scrollView == null || contentContainer == null) {
-            return;
-        }
-        if (scrollView.getScrollY() <= 0) {
-            return;
-        }
+        if (scrollView == null || contentContainer == null) return;
+        if (scrollView.getScrollY() <= 0) return;
         scrollView.post(() -> {
-            if (scrollView == null || contentContainer == null) {
-                return;
-            }
-            int viewport = scrollView.getHeight() - scrollView.getPaddingTop()
-                    - scrollView.getPaddingBottom();
+            if (scrollView == null || contentContainer == null) return;
+            int viewport = scrollView.getHeight() - scrollView.getPaddingTop() - scrollView.getPaddingBottom();
             int max = Math.max(0, contentContainer.getHeight() - viewport);
-            if (scrollView.getScrollY() > max) {
+            if (scrollView.getScrollY() > max)
                 scrollView.scrollTo(0, max);
-            }
         });
     }
 
     private void updateSceneSubtitle() {
-        if (sceneSubtitle == null) {
-            return;
-        }
+        if (sceneSubtitle == null) return;
         if (sceneId <= 0) {
             sceneSubtitle.setText("");
             return;
         }
         MapCatalog.Scene scene = MapCatalog.find(sceneId);
-        sceneSubtitle.setText(scene != null
-                ? scene.name
-                : getString(R.string.sub_title, sceneId));
+        sceneSubtitle.setText(scene != null ? scene.name : getString(R.string.sub_title, sceneId));
     }
 
     private void toggleOverlayWindow() {
@@ -440,32 +401,13 @@ public class MainActivity extends AppCompatActivity {
                 .setTitle(R.string.dialog_permission_title)
                 .setMessage(R.string.dialog_permission_message)
                 .setNegativeButton(R.string.dialog_cancel, null)
-                .setPositiveButton(R.string.dialog_permission,
-                        (dialog, which) -> PermissionUtils.requestPermission(this, new OnPermissionResult() {
-                            @Override
-                            public void permissionResult(boolean b) {
-
-                            }
-                        }))
+                .setPositiveButton(R.string.dialog_permission, (dialog, which) -> PermissionUtils.requestPermission(this, b -> {}))
                 .show();
     }
 
     private void startCaptureFlow() {
-        if (phase == Phase.PREPARING || phase == Phase.REQUESTING
-                || phase == Phase.CAPTURING || phase == Phase.STOPPING) {
-            return;
-        }
-        if (!commitTarget(true)) {
-            return;
-        }
-        beginStartCapture();
-    }
-
-    private void beginStartCapture() {
-        if (phase == Phase.PREPARING || phase == Phase.REQUESTING
-                || phase == Phase.CAPTURING || phase == Phase.STOPPING) {
-            return;
-        }
+        if (phase == Phase.PREPARING || phase == Phase.REQUESTING || phase == Phase.CAPTURING || phase == Phase.STOPPING) return;
+        if (!commitTarget(true)) return;
         hideKeyboard();
         mapVisible = false;
         NearbyRuntime.clear();
@@ -478,13 +420,11 @@ public class MainActivity extends AppCompatActivity {
         phase = Phase.PREPARING;
         render();
         try {
-            Intent serviceIntent = new Intent(this, PcapCaptureService.class)
-                    .setAction(PcapCaptureService.ACTION_START);
+            Intent serviceIntent = new Intent(this, PcapCaptureService.class).setAction(PcapCaptureService.ACTION_START);
             ContextCompat.startForegroundService(this, serviceIntent);
             mainHandler.removeCallbacks(serviceStartTimeout);
-            if (!remote) {
+            if (!remote)
                 mainHandler.postDelayed(serviceStartTimeout, 4000);
-            }
         } catch (Throwable e) {
             phase = Phase.ERROR;
             render();
@@ -500,17 +440,14 @@ public class MainActivity extends AppCompatActivity {
     };
 
     private void launchPcapdroidControlRequest() {
-        if (controlRequested) {
-            return;
-        }
+        if (controlRequested) return;
         if (isRemoteTarget()) {
             controlRequested = true;
             return;
         }
         controlRequested = true;
         try {
-            captureStartLauncher.launch(
-                    PcapControl.buildStartIntent(lastValidTarget, localPort));
+            captureStartLauncher.launch(PcapControl.buildStartIntent(lastValidTarget, localPort));
         } catch (Throwable e) {
             controlRequested = false;
             phase = Phase.ERROR;
@@ -521,9 +458,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void stopCaptureFlow() {
-        if (phase == Phase.STOPPING) {
-            return;
-        }
+        if (phase == Phase.STOPPING) return;
         mapVisible = false;
         NearbyRuntime.clear();
         pendingMapExpand = false;
@@ -537,8 +472,7 @@ public class MainActivity extends AppCompatActivity {
             if (authorized) {
                 try {
                     captureStopLauncher.launch(PcapControl.buildStopIntent());
-                } catch (Throwable ignored) {
-                }
+                } catch (Throwable ignored) {}
                 authorized = false;
             }
             mainHandler.postDelayed(this::stopLocalReceiver, 700);
@@ -556,17 +490,13 @@ public class MainActivity extends AppCompatActivity {
 
     private void stopLocalReceiver() {
         try {
-            Intent stop = new Intent(this, PcapCaptureService.class)
-                    .setAction(PcapCaptureService.ACTION_STOP);
+            Intent stop = new Intent(this, PcapCaptureService.class).setAction(PcapCaptureService.ACTION_STOP);
             startService(stop);
-        } catch (Throwable ignored) {
-        }
+        } catch (Throwable ignored) {}
     }
 
     private void requestControlIfServerAlreadyWaiting() {
-        if (phase == Phase.PREPARING && !controlRequested
-                && snapshot.state == CaptureRuntime.State.LISTENING
-                && snapshot.port > 0) {
+        if (phase == Phase.PREPARING && !controlRequested && snapshot.state == CaptureRuntime.State.LISTENING && snapshot.port > 0) {
             localPort = snapshot.port;
             phase = Phase.REQUESTING;
             render();
@@ -575,9 +505,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applySnapshot(CaptureRuntime.Snapshot newSnapshot) {
-        if (newSnapshot == null) {
-            return;
-        }
+        if (newSnapshot == null) return;
         snapshot = newSnapshot;
         switch (newSnapshot.state) {
             case CAPTURING:
@@ -598,15 +526,13 @@ public class MainActivity extends AppCompatActivity {
                 authorized = false;
                 break;
             case IDLE:
-                if (phase != Phase.ERROR) {
+                if (phase != Phase.ERROR)
                     phase = Phase.IDLE;
-                }
                 authorized = false;
                 break;
             case STARTING:
-                if (phase == Phase.IDLE) {
+                if (phase == Phase.IDLE)
                     phase = Phase.PREPARING;
-                }
                 break;
             default:
                 break;
@@ -626,14 +552,11 @@ public class MainActivity extends AppCompatActivity {
         boolean buttonEnabled = true;
         switch (phase) {
             case PREPARING:
-                title = getString(isRemoteTarget() ? R.string.title_connecting
-                        : R.string.title_requesting);
+                title = getString(isRemoteTarget() ? R.string.title_connecting : R.string.title_requesting);
                 button = getString(R.string.action_stop);
                 break;
             case REQUESTING:
-                title = getString(authorized
-                        ? R.string.title_capturing
-                        : R.string.title_requesting);
+                title = getString(authorized ? R.string.title_capturing : R.string.title_requesting);
                 button = getString(R.string.action_stop);
                 break;
             case CAPTURING:
@@ -666,23 +589,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateMapContent() {
-        if (mapCard == null) {
-            return;
-        }
-        int targetSceneId = nearby.hasPosition && nearby.sceneId > 0
-                ? nearby.sceneId
-                : sceneId;
-        MapCatalog.Scene targetScene = targetSceneId > 0
-                ? MapCatalog.find(targetSceneId)
-                : null;
+        if (mapCard == null) return;
+        int targetSceneId = nearby.hasPosition && nearby.sceneId > 0 ? nearby.sceneId : sceneId;
+        MapCatalog.Scene targetScene = targetSceneId > 0 ? MapCatalog.find(targetSceneId) : null;
         boolean canShow = targetScene != null && hasLivePosition();
         if (canShow && pendingMapExpand) {
             pendingMapExpand = false;
             mapVisible = true;
-            if (scrollView != null && mapCard != null
-                    && mapCard.getParent() == contentContainer) {
+            if (scrollView != null && mapCard != null && mapCard.getParent() == contentContainer)
                 scrollView.post(() -> scrollView.smoothScrollTo(0, mapScrollTarget()));
-            }
         }
         syncCardTaps(canShow && mapVisible);
         if (!canShow) {
@@ -696,9 +611,7 @@ public class MainActivity extends AppCompatActivity {
             MapPaint paint = MapPaint.get(targetScene.sceneId);
             mapCard.bind(targetScene, paint, nearby.selfX, nearby.selfY);
             mapCard.setFollowing(mapFollowing);
-            if (!mapFollowing && !mapViewportRestored
-                    && Double.isFinite(mapCenterX) && Double.isFinite(mapCenterY)
-                    && mapSpan > 0) {
+            if (!mapFollowing && !mapViewportRestored && Double.isFinite(mapCenterX) && Double.isFinite(mapCenterY) && mapSpan > 0) {
                 mapViewportRestored = true;
                 mapCard.restoreViewport(mapCenterX, mapCenterY, mapSpan);
             }
@@ -714,41 +627,31 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void syncCardTaps(boolean enabled) {
-        if (nearbyList == null) {
-            return;
-        }
+        if (nearbyList == null) return;
         nearbyList.setOnEntityClickListener(enabled ? trackEntityListener : null);
     }
 
     private void onEntityCardTapped(NearbyEntity entity) {
-        if (mapCard == null || entity == null) {
-            return;
-        }
+        if (mapCard == null || entity == null) return;
         mapCard.trackEntity(entity);
         mapFollowing = mapCard.isFollowing();
     }
 
     private boolean readTrackRequest(@Nullable Intent intent) {
-        if (intent == null || !intent.getBooleanExtra(EXTRA_OPEN_MAP, false)) {
+        if (intent == null || !intent.getBooleanExtra(EXTRA_OPEN_MAP, false))
             return false;
-        }
         intent.removeExtra(EXTRA_OPEN_MAP);
         pendingMapExpand = true;
         String key = intent.getStringExtra(EXTRA_TRACK_ENTITY);
         intent.removeExtra(EXTRA_TRACK_ENTITY);
-        if (!TextUtils.isEmpty(key)) {
+        if (!TextUtils.isEmpty(key))
             pendingTrackEntityKey = key;
-        }
         return true;
     }
 
     private void applyPendingTrack() {
-        if (pendingTrackEntityKey == null || mapCard == null) {
-            return;
-        }
-        if (nearby.entities.isEmpty()) {
-            return;
-        }
+        if (pendingTrackEntityKey == null || mapCard == null) return;
+        if (nearby.entities.isEmpty()) return;
         NearbyEntity match = null;
         for (NearbyEntity candidate : nearby.entities) {
             if (candidate != null && pendingTrackEntityKey.equals(candidate.identityKey())) {
@@ -757,38 +660,29 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         pendingTrackEntityKey = null;
-        if (match == null) {
-            return;
-        }
+        if (match == null) return;
         mapCard.trackEntity(match);
         mapFollowing = mapCard.isFollowing();
     }
 
     private void updateNearbyList() {
-        if (nearbyList == null) {
-            return;
-        }
+        if (nearbyList == null) return;
         double selfX = nearby.hasPosition ? nearby.selfX : Double.NaN;
         double selfY = nearby.hasPosition ? nearby.selfY : Double.NaN;
         nearbyList.bind(nearby.entities, selfX, selfY);
     }
 
     private void updateEmptyCardVisibility() {
-        if (emptyCard == null) {
-            return;
-        }
-        emptyCard.setVisibility(hasLivePosition() ? View.INVISIBLE : View.VISIBLE);
+        if (emptyCard == null) return;
+        emptyCard.setVisibility(hasLivePosition() ? View.GONE : View.VISIBLE);
     }
 
     private void updateActionRow() {
-        if (actionRow == null) {
-            return;
-        }
+        if (actionRow == null) return;
         boolean hasPosition = hasLivePosition();
         actionRow.setVisibility(hasPosition ? View.VISIBLE : View.INVISIBLE);
-        if (stopButton != null) {
+        if (stopButton != null)
             stopButton.setVisibility(hasPosition ? View.VISIBLE : View.INVISIBLE);
-        }
         if (mapButton != null) {
             mapButton.setVisibility(hasPosition ? View.VISIBLE : View.INVISIBLE);
             mapButton.setEnabled(hasPosition);
@@ -800,57 +694,48 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean isCaptureActive() {
-        return phase == Phase.PREPARING || phase == Phase.REQUESTING
-                || phase == Phase.CAPTURING || phase == Phase.STOPPING;
+        return phase == Phase.PREPARING || phase == Phase.REQUESTING || phase == Phase.CAPTURING || phase == Phase.STOPPING;
     }
 
     private void focusTargetInput() {
-        if (!targetInput.isEnabled()) {
-            return;
-        }
+        if (!targetInput.isEnabled()) return;
         targetInput.requestFocus();
-        targetInput.setSelection(targetInput.getText() != null
-                ? targetInput.getText().length() : 0);
+        targetInput.setSelection(targetInput.getText() != null ? targetInput.getText().length() : 0);
         resetTargetInputPadding();
         targetInput.post(() -> {
             resetTargetInputPadding();
             InputMethodManager manager = getSystemService(InputMethodManager.class);
-            if (manager != null && targetInput.hasFocus()) {
+            if (manager != null && targetInput.hasFocus())
                 manager.showSoftInput(targetInput, InputMethodManager.SHOW_IMPLICIT);
-            }
         });
     }
 
     private void resetTargetInputPadding() {
-        if (targetInput != null) {
+        if (targetInput != null)
             targetInput.setPadding(0, 0, 0, 0);
-        }
-        if (targetInputLayout != null) {
+        if (targetInputLayout != null)
             targetInputLayout.setPadding(0, 0, 0, 0);
-        }
     }
 
     private boolean commitTarget(boolean showError) {
-        String value = targetInput.getText() != null
-                ? targetInput.getText().toString().trim() : "";
+        String value = targetInput.getText() != null ? targetInput.getText().toString().trim() : "";
         if (TextUtils.isEmpty(value)) {
             value = defaultTarget;
             targetInput.setText(value);
             targetInput.setSelection(value.length());
         }
         if (!CaptureTarget.isValid(value)) {
-            if (showError) {
+            if (showError)
                 focusTargetInput();
-            } else {
+            else {
                 targetInput.setText(lastValidTarget);
                 targetInput.setSelection(lastValidTarget.length());
             }
             return false;
         }
         lastValidTarget = value;
-        if (!value.equals(targetInput.getText().toString())) {
+        if (!value.equals(targetInput.getText().toString()))
             targetInput.setText(value);
-        }
         preferences.edit().putString(KEY_TARGET, value).apply();
         captureTarget = CaptureTarget.parse(value);
         return true;
@@ -866,34 +751,25 @@ public class MainActivity extends AppCompatActivity {
                 .setMessage(getString(R.string.dialog_missing_message,
                         getString(R.string.app_name)))
                 .setNegativeButton(R.string.dialog_cancel, null)
-                .setPositiveButton(R.string.dialog_install,
-                        (dialog, which) -> openPcapdroidStore())
+                .setPositiveButton(R.string.dialog_install, (dialog, which) -> openPcapdroidStore())
                 .show();
     }
 
     private void openPcapdroidStore() {
         try {
-            startActivity(new Intent(Intent.ACTION_VIEW,
-                    Uri.parse("market://details?id=com.emanuelef.remote_capture"))
-                    .setPackage("com.android.vending"));
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.emanuelef.remote_capture")).setPackage("com.android.vending"));
         } catch (Throwable e) {
             try {
-                startActivity(new Intent(Intent.ACTION_VIEW,
-                        Uri.parse("https://github.com/emanuele-f/PCAPdroid/releases")));
-            } catch (Throwable ignored) {
-                
-            }
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/emanuele-f/PCAPdroid/releases")));
+            } catch (Throwable ignored) {}
         }
     }
 
     private void hideKeyboard() {
         View focused = getCurrentFocus();
-        if (focused == null) {
-            return;
-        }
+        if (focused == null) return;
         InputMethodManager manager = getSystemService(InputMethodManager.class);
-        if (manager != null) {
+        if (manager != null)
             manager.hideSoftInputFromWindow(focused.getWindowToken(), 0);
-        }
     }
 }

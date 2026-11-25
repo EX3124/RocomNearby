@@ -69,21 +69,18 @@ final class GameProto {
     }
 
     static Position parseSelfMove(byte[] plaintext) {
-        if (plaintext == null || plaintext.length < 16) {
+        if (plaintext == null || plaintext.length < 16)
             return null;
-        }
         int limit = Math.min(24, plaintext.length - 4);
         Position best = null;
         int bestScore = Integer.MIN_VALUE;
         for (int start = 8; start <= limit; start++) {
             Scan scan = scan(plaintext, start, plaintext.length, 20000);
-            if (scan.fields.size() < 3) {
+            if (scan.fields.size() < 3)
                 continue;
-            }
             FoundPosition found = findPosition(plaintext, start, 1);
-            if (found == null) {
+            if (found == null)
                 continue;
-            }
             int score = 100 * scan.consumed - found.pathLength;
             if (score > bestScore) {
                 bestScore = score;
@@ -94,37 +91,31 @@ final class GameProto {
     }
 
     static Teleport parseTeleport(byte[] plaintext) {
-        if (plaintext == null || plaintext.length < 14) {
+        if (plaintext == null || plaintext.length < 14)
             return null;
-        }
         int base = 10;
         Teleport best = null;
         int bestScore = Integer.MIN_VALUE;
         for (int extra = 0; extra <= 16 && base + extra < plaintext.length; extra++) {
             Scan scan = scan(plaintext, base + extra, plaintext.length, 300);
-            if (scan.fields.isEmpty()) {
+            if (scan.fields.isEmpty())
                 continue;
-            }
             Map<Integer, Long> values = new HashMap<>();
             Field positionField = null;
             int presentFields = 0;
             for (Field field : scan.fields) {
                 presentFields++;
-                if (field.wireType == 0) {
+                if (field.wireType == 0)
                     values.put(field.number, field.value);
-                } else if (field.wireType == 2 && field.number == 14) {
+                else if (field.wireType == 2 && field.number == 14)
                     positionField = field;
-                }
             }
             Long sceneValue = values.get(12);
-            if (sceneValue == null || sceneValue < 10000 || sceneValue > 9999999) {
+            if (sceneValue == null || sceneValue < 10000 || sceneValue > 9999999)
                 continue;
-            }
-            Position position = positionField != null
-                    ? parseTeleportPosition(positionField.bytes) : null;
-            if (position == null) {
+            Position position = positionField != null ? parseTeleportPosition(positionField.bytes) : null;
+            if (position == null)
                 continue;
-            }
             int score = presentFields + 20;
             if (score > bestScore) {
                 bestScore = score;
@@ -135,32 +126,27 @@ final class GameProto {
     }
 
     static int parseEnterScene(byte[] plaintext) {
-        if (plaintext == null || plaintext.length < 14) {
+        if (plaintext == null || plaintext.length < 14)
             return 0;
-        }
         int base = 10;
         int bestScene = 0;
         int bestScore = Integer.MIN_VALUE;
         for (int extra = 0; extra <= 16 && base + extra < plaintext.length; extra++) {
             Scan scan = scan(plaintext, base + extra, plaintext.length, 300);
-            if (scan.fields.isEmpty()) {
+            if (scan.fields.isEmpty())
                 continue;
-            }
             int sceneId = 0;
             boolean hasCfg = false;
             for (Field field : scan.fields) {
-                if (field.wireType != 0) {
+                if (field.wireType != 0)
                     continue;
-                }
-                if (field.number == 3) {
+                if (field.number == 3)
                     sceneId = (int) field.value;
-                } else if (field.number == 2) {
+                else if (field.number == 2)
                     hasCfg = true;
-                }
             }
-            if (sceneId < 10000 || sceneId > 9999999) {
+            if (sceneId < 10000 || sceneId > 9999999)
                 continue;
-            }
             int score = scan.fields.size() + (hasCfg ? 20 : 0);
             if (score > bestScore) {
                 bestScore = score;
@@ -173,133 +159,109 @@ final class GameProto {
     private static FoundPosition findPosition(byte[] data, int offset, int depth) {
         Scan scan = scan(data, offset, data.length, 20000);
         for (Field field : scan.fields) {
-            if (field.wireType != 2) {
+            if (field.wireType != 2)
                 continue;
-            }
             Position direct = parseCoordinate(field.bytes, 100000, true);
-            if (direct != null) {
+            if (direct != null)
                 return new FoundPosition(direct, 1);
-            }
         }
-        if (depth >= 2) {
+        if (depth >= 2)
             return null;
-        }
         for (Field field : scan.fields) {
-            if (field.wireType != 2) {
+            if (field.wireType != 2)
                 continue;
-            }
             FoundPosition nested = findPosition(field.bytes, 0, depth + 1);
-            if (nested != null) {
+            if (nested != null)
                 return new FoundPosition(nested.position, nested.pathLength + 1);
-            }
         }
         return null;
     }
 
     private static Position parseTeleportPosition(byte[] data) {
-        if (data == null || data.length == 0) {
+        if (data == null || data.length == 0)
             return null;
-        }
         Scan scan = scan(data, 0, data.length, 300);
         for (Field field : scan.fields) {
             if (field.wireType == 2 && field.number == 1) {
                 Position position = parseCoordinate(field.bytes, 1000, false);
-                if (position != null) {
+                if (position != null)
                     return position;
-                }
             }
         }
         return parseCoordinate(data, 1000, false);
     }
 
     private static Position parseCoordinate(byte[] data, int minAbs, boolean exactLength) {
-        if (data == null || data.length < 2) {
+        if (data == null || data.length < 2)
             return null;
-        }
         Scan scan = scan(data, 0, data.length, 20000);
-        if (scan.fields.isEmpty()) {
+        if (scan.fields.isEmpty())
             return null;
-        }
-        if (exactLength && scan.consumed != data.length) {
+        if (exactLength && scan.consumed != data.length)
             return null;
-        }
         Long x = null;
         Long y = null;
         long z = 0;
         for (Field field : scan.fields) {
-            if (field.wireType != 0) {
+            if (field.wireType != 0)
                 return null;
-            }
-            if (field.number == 1) {
+            if (field.number == 1)
                 x = field.value;
-            } else if (field.number == 2) {
+            else if (field.number == 2)
                 y = field.value;
-            } else if (field.number == 3) {
+            else if (field.number == 3)
                 z = field.value;
-            }
         }
-        if (x == null || y == null) {
+        if (x == null || y == null)
             return null;
-        }
         double dx = signed(x);
         double dy = signed(y);
-        if (Math.abs(dx) < minAbs || Math.abs(dx) > 2000000
-                || Math.abs(dy) < minAbs || Math.abs(dy) > 2000000) {
+        if (Math.abs(dx) < minAbs || Math.abs(dx) > 2000000 || Math.abs(dy) < minAbs || Math.abs(dy) > 2000000)
             return null;
-        }
         return new Position(dx, dy, signed(z));
     }
 
     private static Scan scan(byte[] data, int offset, int end, int maxFieldNumber) {
         List<Field> fields = new ArrayList<>();
-        if (data == null || offset < 0 || end > data.length || offset >= end) {
+        if (data == null || offset < 0 || end > data.length || offset >= end)
             return new Scan(fields, 0);
-        }
         int position = offset;
         int count = 0;
         while (position < end && count < 400) {
             count++;
             long[] tag = readVarint(data, position, end);
-            if (tag == null) {
+            if (tag == null)
                 break;
-            }
             int tagValue = (int) tag[0];
             int fieldNumber = tagValue >>> 3;
             int wireType = tagValue & 7;
-            if (fieldNumber <= 0 || fieldNumber > maxFieldNumber
-                    || wireType == 3 || wireType == 4 || wireType > 5) {
+            if (fieldNumber <= 0 || fieldNumber > maxFieldNumber || wireType == 3 || wireType == 4 || wireType > 5)
                 break;
-            }
             position = (int) tag[1];
             if (wireType == 0) {
                 long[] value = readVarint(data, position, end);
-                if (value == null) {
+                if (value == null)
                     break;
-                }
                 fields.add(new Field(fieldNumber, wireType, value[0], null));
                 position = (int) value[1];
             } else if (wireType == 1) {
-                if (position + 8 > end) {
+                if (position + 8 > end)
                     break;
-                }
                 fields.add(new Field(fieldNumber, wireType, 0, null));
                 position += 8;
             } else if (wireType == 5) {
-                if (position + 4 > end) {
+                if (position + 4 > end)
                     break;
-                }
                 fields.add(new Field(fieldNumber, wireType, 0, null));
                 position += 4;
             } else {
                 long[] lengthValue = readVarint(data, position, end);
-                if (lengthValue == null) {
+                if (lengthValue == null)
                     break;
-                }
                 int length = (int) lengthValue[0];
                 int start = (int) lengthValue[1];
-                if (length < 0 || start + length > end) {
+                if (length < 0 || start + length > end)
                     break;
-                }
                 byte[] bytes = new byte[length];
                 System.arraycopy(data, start, bytes, 0, length);
                 fields.add(new Field(fieldNumber, wireType, 0, bytes));
@@ -316,9 +278,8 @@ final class GameProto {
         while (position < end && shift < 64) {
             int b = data[position++] & 0xFF;
             value |= (long) (b & 0x7F) << shift;
-            if ((b & 0x80) == 0) {
+            if ((b & 0x80) == 0)
                 return new long[]{value, position};
-            }
             shift += 7;
         }
         return null;

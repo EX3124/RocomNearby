@@ -18,9 +18,7 @@ final class PcapRecordCounter {
     }
 
     void feed(byte[] data, int offset, int length) {
-        if (unsupported || length <= 0) {
-            return;
-        }
+        if (unsupported || length <= 0) return;
         int position = offset;
         int end = offset + length;
         if (!globalHeaderParsed) {
@@ -29,9 +27,7 @@ final class PcapRecordCounter {
             System.arraycopy(data, position, buffer, bufferSize, take);
             bufferSize += take;
             position += take;
-            if (bufferSize < GLOBAL_HEADER_SIZE) {
-                return;
-            }
+            if (bufferSize < GLOBAL_HEADER_SIZE) return;
             if (!parseGlobalHeader()) {
                 unsupported = true;
                 return;
@@ -43,9 +39,8 @@ final class PcapRecordCounter {
                 int take = (int) Math.min(payloadRemaining, end - position);
                 payloadRemaining -= take;
                 position += take;
-                if (payloadRemaining == 0) {
+                if (payloadRemaining == 0)
                     packets++;
-                }
                 continue;
             }
             int needed = RECORD_HEADER_SIZE - recordHeaderSize;
@@ -53,9 +48,8 @@ final class PcapRecordCounter {
             System.arraycopy(data, position, buffer, recordHeaderSize, take);
             recordHeaderSize += take;
             position += take;
-            if (recordHeaderSize < RECORD_HEADER_SIZE) {
+            if (recordHeaderSize < RECORD_HEADER_SIZE)
                 continue;
-            }
             long capturedLength = readU32(buffer, 8);
             recordHeaderSize = 0;
             if (capturedLength < 0 || capturedLength > MAX_RECORD_SIZE) {
@@ -63,9 +57,8 @@ final class PcapRecordCounter {
                 break;
             }
             payloadRemaining = capturedLength;
-            if (payloadRemaining == 0) {
+            if (payloadRemaining == 0)
                 packets++;
-            }
         }
     }
 
@@ -83,22 +76,12 @@ final class PcapRecordCounter {
     }
 
     private long readU32(byte[] data, int offset) {
-        if (littleEndian) {
-            return (data[offset] & 0xffL)
-                    | ((data[offset + 1] & 0xffL) << 8)
-                    | ((data[offset + 2] & 0xffL) << 16)
-                    | ((data[offset + 3] & 0xffL) << 24);
-        }
-        return ((data[offset] & 0xffL) << 24)
-                | ((data[offset + 1] & 0xffL) << 16)
-                | ((data[offset + 2] & 0xffL) << 8)
-                | (data[offset + 3] & 0xffL);
+        if (littleEndian)
+            return (data[offset] & 0xffL) | ((data[offset + 1] & 0xffL) << 8) | ((data[offset + 2] & 0xffL) << 16) | ((data[offset + 3] & 0xffL) << 24);
+        return ((data[offset] & 0xffL) << 24) | ((data[offset + 1] & 0xffL) << 16) | ((data[offset + 2] & 0xffL) << 8) | (data[offset + 3] & 0xffL);
     }
 
     private static int readIntBigEndian(byte[] data, int offset) {
-        return ((data[offset] & 0xff) << 24)
-                | ((data[offset + 1] & 0xff) << 16)
-                | ((data[offset + 2] & 0xff) << 8)
-                | (data[offset + 3] & 0xff);
+        return ((data[offset] & 0xff) << 24) | ((data[offset + 1] & 0xff) << 16) | ((data[offset + 2] & 0xff) << 8) | (data[offset + 3] & 0xff);
     }
 }

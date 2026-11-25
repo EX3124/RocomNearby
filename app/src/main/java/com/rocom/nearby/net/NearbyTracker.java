@@ -86,17 +86,15 @@ final class NearbyTracker {
     }
 
     boolean consume(int opcode, byte[] plain, long now) {
-        if (plain == null || plain.length == 0) {
+        if (plain == null || plain.length == 0)
             return false;
-        }
         if (opcode == 330) {
             boolean changed = false;
             List<EntityRecord> records = EntityParser.parseSpawn(plain);
             for (int i = 0; i < records.size(); i++) {
                 EntityRecord record = records.get(i);
-                if (record.token != 0 && goneTokens.contains(record.token)) {
+                if (record.token != 0 && goneTokens.contains(record.token))
                     continue;
-                }
                 changed |= upsert(record, now);
             }
             return changed;
@@ -106,19 +104,16 @@ final class NearbyTracker {
             List<EntityRecord> records = EntityParser.parseBatch(plain);
             for (int i = 0; i < records.size(); i++) {
                 EntityRecord record = records.get(i);
-                if (record.token != 0 && goneTokens.contains(record.token)) {
+                if (record.token != 0 && goneTokens.contains(record.token))
                     continue;
-                }
                 changed |= upsert(record, now);
             }
             List<Long> gone = EntityParser.parseDeparted(plain);
-            for (int i = 0; i < gone.size(); i++) {
+            for (int i = 0; i < gone.size(); i++)
                 changed |= markGone(gone.get(i), now);
-            }
             List<EntityParser.Move> moves = EntityParser.parseMoves(plain);
-            for (int i = 0; i < moves.size(); i++) {
+            for (int i = 0; i < moves.size(); i++)
                 changed |= applyMove(moves.get(i), now);
-            }
             return changed;
         }
         return false;
@@ -128,39 +123,32 @@ final class NearbyTracker {
         battle.expireIfStale(now);
         List<BattleUnit> enemies = battle.enemies();
         BattleUnit enemy = enemies.isEmpty() ? null : enemies.get(0);
-        if (enemy == null && (battleEntityToken != 0L || battleEntryKey != null
-                || battle.result() != null)) {
+        if (enemy == null && (battleEntityToken != 0L || battleEntryKey != null || battle.result() != null))
             settleBattle(now);
-        }
         Entry fighting = enemy == null ? null : findBattleEntry(enemy);
         List<Entry> fightingEntries = new ArrayList<>();
         if (enemy != null) {
             fightingKeys.clear();
             fightingKeys.add(fighting == null ? null : fighting.key);
         }
-        if (fighting != null) {
+        if (fighting != null)
             fightingEntries.add(fighting);
-        }
         boolean hasSelf = Double.isFinite(selfX) && Double.isFinite(selfY);
         List<Entry> visible = new ArrayList<>();
         for (Entry entry : byId.values()) {
-            if (entry.left || fightingEntries.contains(entry)) {
+            if (entry.left || fightingEntries.contains(entry))
                 continue;
-            }
             if (hasSelf) {
-                if (distanceMeters(entry.record) > MAX_DISTANCE_M) {
+                if (distanceMeters(entry.record) > MAX_DISTANCE_M)
                     continue;
-                }
-            } else if (now - entry.seenAt > MAX_AGE_MS) {
+            } else if (now - entry.seenAt > MAX_AGE_MS)
                 continue;
-            }
             visible.add(entry);
         }
         Collections.sort(visible, order(hasSelf));
         List<NearbyEntity> out = new ArrayList<>(Math.min(visible.size(), MAX_CARDS));
-        for (int i = 0; i < visible.size() && i < MAX_CARDS; i++) {
+        for (int i = 0; i < visible.size() && i < MAX_CARDS; i++)
             out.add(toEntity(visible.get(i).record));
-        }
         if (enemy != null) {
             List<NearbyEntity> cards = new ArrayList<>(enemies.size());
             for (int i = 0; i < enemies.size(); i++) {
@@ -168,9 +156,8 @@ final class NearbyTracker {
                 cards.add(toBattleEntity(unit));
             }
             out.addAll(0, cards);
-            while (out.size() > MAX_CARDS) {
+            while (out.size() > MAX_CARDS)
                 out.remove(out.size() - 1);
-            }
         }
         return out;
     }
@@ -185,9 +172,9 @@ final class NearbyTracker {
             Entry entry = entryOf(i, unit);
             boolean captured = result != null && result.capturedMatches(unit);
             boolean killed = !captured && hasResult && i < onField;
-            if (captured || killed) {
+            if (captured || killed)
                 drop(entry, now, captured);
-            } else if (entry != null && entry.left) {
+            else if (entry != null && entry.left) {
                 entry.left = false;
                 entry.seenAt = now;
             }
@@ -203,70 +190,56 @@ final class NearbyTracker {
         String key = index < fightingKeys.size() ? fightingKeys.get(index) : null;
         if (key != null) {
             Entry entry = byId.get(key);
-            if (entry != null) {
+            if (entry != null)
                 return entry;
-            }
         }
         return index == 0 ? findBattleEntry(unit) : null;
     }
 
     private void drop(Entry entry, long now, boolean ban) {
-        if (entry == null) {
-            return;
-        }
+        if (entry == null) return;
         if (!entry.left) {
             entry.left = true;
             entry.seenAt = now;
             dropTokens(entry.key);
         }
-        if (ban && entry.record.token != 0) {
+        if (ban && entry.record.token != 0)
             goneTokens.add(entry.record.token);
-        }
     }
 
     int consumeCaught(List<CaughtParser.Caught> caught, long now) {
-        if (caught == null || caught.isEmpty()) {
+        if (caught == null || caught.isEmpty())
             return 0;
-        }
         int removed = 0;
-        for (int i = 0; i < caught.size(); i++) {
+        for (int i = 0; i < caught.size(); i++)
             removed += removeCaught(caught.get(i), now);
-        }
         return removed;
     }
 
     private int removeCaught(CaughtParser.Caught caught, long now) {
         int removed = 0;
-        for (Iterator<Map.Entry<String, Entry>> iterator = byId.entrySet().iterator();
-             iterator.hasNext(); ) {
+        for (Iterator<Map.Entry<String, Entry>> iterator = byId.entrySet().iterator(); iterator.hasNext();) {
             Entry entry = iterator.next().getValue();
-            if (!sameSprite(entry.record, caught)) {
+            if (!sameSprite(entry.record, caught))
                 continue;
-            }
             iterator.remove();
             dropTokens(entry.key);
             removed++;
         }
-        if (removed == 0) {
+        if (removed == 0)
             return 0;
-        }
-        caughtSuppress.put(caughtSignature(caught.baseConfId, caught.height, caught.weight),
-                now + CAUGHT_SUPPRESS_MS);
+        caughtSuppress.put(caughtSignature(caught.baseConfId, caught.height, caught.weight), now + CAUGHT_SUPPRESS_MS);
         long sweepAt = now + CAUGHT_SWEEP_MS;
-        caughtSuppressSweepAt = caughtSuppressSweepAt == 0L
-                ? sweepAt
-                : Math.min(caughtSuppressSweepAt, sweepAt);
+        caughtSuppressSweepAt = caughtSuppressSweepAt == 0L ? sweepAt : Math.min(caughtSuppressSweepAt, sweepAt);
         return removed;
     }
 
     private static boolean sameSprite(EntityRecord record, CaughtParser.Caught caught) {
-        if (record.height != caught.height || record.weight != caught.weight) {
+        if (record.height != caught.height || record.weight != caught.weight)
             return false;
-        }
         long species = SpeciesSizes.speciesForForm(record.cfgId);
-        if (species <= 0L || species != caught.baseConfId) {
+        if (species <= 0L || species != caught.baseConfId)
             return false;
-        }
         return !(caught.hasVoice && record.hasVoice() && record.voice != caught.voice);
     }
 
@@ -276,36 +249,29 @@ final class NearbyTracker {
 
     private static String caughtSignature(EntityRecord record) {
         long species = SpeciesSizes.speciesForForm(record.cfgId);
-        if (species <= 0L) {
+        if (species <= 0L)
             return null;
-        }
         return caughtSignature(species, record.height, record.weight);
     }
 
     private boolean isSuppressed(EntityRecord record, long now) {
-        if (caughtSuppress.isEmpty()) {
+        if (caughtSuppress.isEmpty())
             return false;
-        }
         if (caughtSuppressSweepAt != 0L && now > caughtSuppressSweepAt) {
-            for (Iterator<Map.Entry<String, Long>> iterator = caughtSuppress.entrySet().iterator();
-                 iterator.hasNext(); ) {
-                if (iterator.next().getValue() <= now) {
+            for (Iterator<Map.Entry<String, Long>> iterator = caughtSuppress.entrySet().iterator(); iterator.hasNext();) {
+                if (iterator.next().getValue() <= now)
                     iterator.remove();
-                }
             }
             caughtSuppressSweepAt = now + CAUGHT_SWEEP_MS;
         }
         String signature = caughtSignature(record);
-        if (signature == null) {
+        if (signature == null)
             return false;
-        }
         Long until = caughtSuppress.get(signature);
-        if (until == null) {
+        if (until == null)
             return false;
-        }
-        if (until > now) {
+        if (until > now)
             return true;
-        }
         caughtSuppress.remove(signature);
         return false;
     }
@@ -326,18 +292,11 @@ final class NearbyTracker {
 
     private NearbyEntity toBattleEntity(BattleUnit unit) {
         String name = null;
-        if (unit.speciesId > 0 && unit.speciesId <= Integer.MAX_VALUE) {
+        if (unit.speciesId > 0 && unit.speciesId <= Integer.MAX_VALUE)
             name = SpeciesNames.speciesLookup(unit.speciesId);
-        }
-        if (name == null) {
+        if (name == null)
             name = SpeciesNames.speciesName(unit.speciesId);
-        }
-        return new NearbyEntity(name, (int) unit.level, battleBadges(unit),
-                unit.heightMeters(), unit.weightKg(), unit.voice,
-                SpeciesSizes.heightPercentileForSpecies(unit.speciesId, unit.height),
-                SpeciesSizes.weightPercentileForSpecies(unit.speciesId, unit.weight),
-                Double.NaN, Double.NaN, true, unit.gender,
-                unit.battlestate);
+        return new NearbyEntity(name, (int) unit.level, battleBadges(unit), unit.heightMeters(), unit.weightKg(), unit.voice, SpeciesSizes.heightPercentileForSpecies(unit.speciesId, unit.height), SpeciesSizes.weightPercentileForSpecies(unit.speciesId, unit.weight), Double.NaN, Double.NaN, true, unit.gender, unit.battlestate);
     }
 
     private static void addNatureBadge(List<Badge> out, long nature) {
@@ -347,15 +306,12 @@ final class NearbyTracker {
     private List<Badge> battleBadges(BattleUnit unit) {
         List<Badge> out = new ArrayList<>(6);
         addNatureBadge(out, unit.nature);
-        if (unit.bloodLine == BLOODLINE_NIGHTMARE && isBlightVariant(unit.variant)) {
+        if (unit.bloodLine == BLOODLINE_NIGHTMARE && isBlightVariant(unit.variant))
             addBadge(out, Badge.of(Badge.Kind.POLLUTION));
-        }
-        if (unit.bloodLine == BLOODLINE_STRANGE) {
+        if (unit.bloodLine == BLOODLINE_STRANGE)
             addBadge(out, Badge.of(Badge.Kind.STRANGE));
-        }
-        if (unit.variant == VARIANT_COLOUR) {
+        if (unit.variant == VARIANT_COLOUR)
             addBadge(out, Badge.of(Badge.Kind.COLORFUL));
-        }
         addBloodlineBadge(out, unit.bloodLine);
         addSizeBadge(out, SpeciesSizes.weightPercentileForSpecies(unit.speciesId, unit.weight));
         addVoiceBadge(out, unit.voice);
@@ -371,16 +327,14 @@ final class NearbyTracker {
     }
 
     private static void addBadge(List<Badge> out, Badge badge) {
-        if (badge != null && !out.contains(badge)) {
+        if (badge != null && !out.contains(badge))
             out.add(badge);
-        }
     }
 
     private Entry findBattleEntry(BattleUnit unit) {
         Entry bound = battleEntryKey == null ? null : byId.get(battleEntryKey);
-        if (bound != null) {
+        if (bound != null)
             return bound;
-        }
         battleEntryKey = null;
         Entry resolved = resolveBattleEntry(unit);
         battleEntryKey = resolved == null ? null : resolved.key;
@@ -392,14 +346,12 @@ final class NearbyTracker {
             String boundKey = tokenToKey.get(Long.toHexString(battleEntityToken));
             if (boundKey != null) {
                 Entry bound = byId.get(boundKey);
-                if (bound != null) {
+                if (bound != null)
                     return bound;
-                }
             }
             for (Entry candidate : byId.values()) {
-                if (candidate.record.token == battleEntityToken) {
+                if (candidate.record.token == battleEntityToken)
                     return candidate;
-                }
             }
         }
         return null;
@@ -409,15 +361,12 @@ final class NearbyTracker {
         return (left, right) -> {
             int leftKinds = badges(left.record).size();
             int rightKinds = badges(right.record).size();
-            if (leftKinds != rightKinds) {
+            if (leftKinds != rightKinds)
                 return rightKinds - leftKinds;
-            }
             if (hasSelf) {
-                int byDistance = Double.compare(distanceMeters(left.record),
-                        distanceMeters(right.record));
-                if (byDistance != 0) {
+                int byDistance = Double.compare(distanceMeters(left.record), distanceMeters(right.record));
+                if (byDistance != 0)
                     return byDistance;
-                }
             }
             return Long.compare(left.record.actorId, right.record.actorId);
         };
@@ -429,13 +378,7 @@ final class NearbyTracker {
 
     private NearbyEntity toEntity(EntityRecord record) {
         String name = SpeciesNames.formName(record.cfgId);
-        return new NearbyEntity(name, (int) record.level,
-                badges(record),
-                record.heightMeters(), record.weightKg(),
-                record.hasVoice() ? record.voice : NearbyEntity.UNKNOWN,
-                SpeciesSizes.heightPercentileForForm(record.cfgId, record.height),
-                SpeciesSizes.weightPercentileForForm(record.cfgId, record.weight),
-                record.x, record.y, false, 0L, 0L);
+        return new NearbyEntity(name, (int) record.level, badges(record), record.heightMeters(), record.weightKg(), record.hasVoice() ? record.voice : NearbyEntity.UNKNOWN, SpeciesSizes.heightPercentileForForm(record.cfgId, record.height), SpeciesSizes.weightPercentileForForm(record.cfgId, record.weight), record.x, record.y, false, 0L, 0L);
     }
 
     static List<Badge> badges(EntityRecord record) {
@@ -447,80 +390,63 @@ final class NearbyTracker {
 
     private static List<Badge> mutationBadges(long mutation, long glassType) {
         List<Badge> out = new ArrayList<>(3);
-        if (glassType != 0 || (mutation & 8L) != 0) {
+        if (glassType != 0 || (mutation & 8L) != 0)
             out.add(Badge.of(Badge.Kind.COLORFUL));
-        }
-        if ((mutation & 1L) != 0) {
+        if ((mutation & 1L) != 0)
             out.add(Badge.of(Badge.Kind.SHINY));
-        }
-        if ((mutation & 166L) != 0) {
+        if ((mutation & 166L) != 0)
             out.add(Badge.of(Badge.Kind.POLLUTION));
-        }
         return out;
     }
 
     private static void addVoiceBadge(List<Badge> out, long voice) {
-        if (voice >= NearbyEntity.VOICE_HIGH) {
+        if (voice >= NearbyEntity.VOICE_HIGH)
             out.add(Badge.of(Badge.Kind.HIGH));
-        } else if (voice <= NearbyEntity.VOICE_LOW) {
+        else if (voice <= NearbyEntity.VOICE_LOW)
             out.add(Badge.of(Badge.Kind.LOW));
-        }
     }
 
     static void addSizeBadge(List<Badge> out, double percentile) {
-        if (!Double.isFinite(percentile)) {
-            return;
-        }
-        if (percentile >= SpeciesSizes.BIG_PERCENTILE) {
+        if (!Double.isFinite(percentile)) return;
+        if (percentile >= SpeciesSizes.BIG_PERCENTILE)
             out.add(Badge.of(Badge.Kind.BIG));
-        } else if (percentile <= SpeciesSizes.SMALL_PERCENTILE) {
+        else if (percentile <= SpeciesSizes.SMALL_PERCENTILE)
             out.add(Badge.of(Badge.Kind.SMALL));
-        }
     }
 
     private boolean upsert(EntityRecord record, long now) {
-        if (!isTrackable(record)) {
+        if (!isTrackable(record))
             return false;
-        }
-        if (isSuppressed(record, now)) {
+        if (isSuppressed(record, now))
             return false;
-        }
         String key = keyOf(record);
-        if (key == null) {
+        if (key == null)
             return false;
-        }
         if (record.token != 0) {
             tokenToKey.put(Long.toHexString(record.token), key);
-            if (record.token == releasedToken) {
+            if (record.token == releasedToken)
                 releasedToken = 0L;
-            }
         }
         Entry existing = byId.get(key);
         if (existing == null) {
-            if (byId.size() >= MAX_RECORDS) {
+            if (byId.size() >= MAX_RECORDS)
                 makeRoom();
-            }
-            if (byId.size() >= MAX_RECORDS) {
+            if (byId.size() >= MAX_RECORDS)
                 return false;
-            }
             byId.put(key, new Entry(key, record, now));
             return true;
         }
-        if (existing.record.cfgId != record.cfgId
-                || existing.record.height != record.height
-                || existing.record.weight != record.weight) {
+        if (existing.record.cfgId != record.cfgId || existing.record.height != record.height || existing.record.weight != record.weight) {
             String variantKey = key + "#" + record.height + ":" + record.weight;
             Entry variant = byId.get(variantKey);
             if (variant != null) {
                 setPosition(variant, record.x, record.y, record.z, now);
                 return false;
             }
-            if (byId.size() >= MAX_RECORDS) {
+            if (byId.size() >= MAX_RECORDS)
                 makeRoom();
-            }
-            if (byId.size() >= MAX_RECORDS) {
+            if (byId.size() >= MAX_RECORDS)
                 return false;
-            }
             byId.put(variantKey, new Entry(variantKey, record, now));
             return true;
         }
@@ -536,46 +462,37 @@ final class NearbyTracker {
     }
 
     private static boolean isTrackable(EntityRecord record) {
-        if (record.height <= 0 || record.weight <= 0) {
+        if (record.height <= 0 || record.weight <= 0)
             return false;
-        }
-        if (record.cfgId < MIN_CFG_ID || record.cfgId > MAX_CFG_ID) {
+        if (record.cfgId < MIN_CFG_ID || record.cfgId > MAX_CFG_ID)
             return false;
-        }
-        if (record.uniqueId == 0) {
+        if (record.uniqueId == 0)
             return false;
-        }
         return ProtoScan.isWorldCoordinate(record.x) && ProtoScan.isWorldCoordinate(record.y);
     }
 
     private static String keyOf(EntityRecord record) {
-        if (record.uniqueId != 0) {
+        if (record.uniqueId != 0)
             return "u" + record.uniqueId;
-        }
-        if (record.refreshId != 0) {
+        if (record.refreshId != 0)
             return "r" + record.cfgId + ":" + record.refreshId;
-        }
-        return "c" + record.cfgId + ":" + Math.round(record.x / 1000.0)
-                + ":" + Math.round(record.y / 1000.0);
+        return "c" + record.cfgId + ":" + Math.round(record.x / 1000.0) + ":" + Math.round(record.y / 1000.0);
     }
 
     private boolean markGone(long id, long now) {
-        if (id == releasedToken) {
+        if (id == releasedToken)
             return false;
-        }
         Entry entry = byId.get("u" + id);
         if (entry == null) {
             for (Entry candidate : byId.values()) {
-                if (candidate.record.uniqueId == id || candidate.record.actorId == id
-                        || candidate.record.token == id) {
+                if (candidate.record.uniqueId == id || candidate.record.actorId == id || candidate.record.token == id) {
                     entry = candidate;
                     break;
                 }
             }
         }
-        if (entry == null || entry.left) {
+        if (entry == null || entry.left)
             return false;
-        }
         entry.left = true;
         entry.seenAt = now;
         dropTokens(entry.key);
@@ -584,35 +501,29 @@ final class NearbyTracker {
     }
 
     private boolean applyMove(EntityParser.Move move, long now) {
-        if (move.tokenHex.equals(selfToken)) {
+        if (move.tokenHex.equals(selfToken))
             return false;
-        }
         String boundKey = tokenToKey.get(move.tokenHex);
         if (boundKey != null) {
             Entry bound = byId.get(boundKey);
-            if (bound != null) {
+            if (bound != null)
                 return setPosition(bound, move.x, move.y, move.z, now);
-            }
             tokenToKey.remove(move.tokenHex);
         }
-        if (voteSelfToken(move)) {
+        if (voteSelfToken(move))
             return false;
-        }
         Entry nearest = nearestUnbound(move.x, move.y);
-        if (nearest == null) {
+        if (nearest == null)
             return false;
-        }
         tokenToKey.put(move.tokenHex, nearest.key);
         return setPosition(nearest, move.x, move.y, move.z, now);
     }
 
     private boolean voteSelfToken(EntityParser.Move move) {
-        if (selfToken != null) {
+        if (selfToken != null)
             return false;
-        }
-        if (!Double.isFinite(selfX) || !Double.isFinite(selfY)) {
+        if (!Double.isFinite(selfX) || !Double.isFinite(selfY))
             return false;
-        }
         double distance = Math.hypot(move.x - selfX, move.y - selfY);
         if (distance > SELF_TOKEN_RADIUS_CM) {
             selfVotes.remove(move.tokenHex);
@@ -621,9 +532,8 @@ final class NearbyTracker {
         Integer seen = selfVotes.get(move.tokenHex);
         int votes = (seen == null ? 0 : seen) + 1;
         selfVotes.put(move.tokenHex, votes);
-        if (votes >= SELF_TOKEN_VOTES) {
+        if (votes >= SELF_TOKEN_VOTES)
             selfToken = move.tokenHex;
-        }
         return true;
     }
 
@@ -632,13 +542,11 @@ final class NearbyTracker {
         Entry best = null;
         double bestDistance = Double.MAX_VALUE;
         for (Entry entry : byId.values()) {
-            if (entry.left || bound.contains(entry.key)) {
+            if (entry.left || bound.contains(entry.key))
                 continue;
-            }
             double distance = Math.hypot(entry.record.x - x, entry.record.y - y);
-            if (distance > BIND_RADIUS_CM || distance >= bestDistance) {
+            if (distance > BIND_RADIUS_CM || distance >= bestDistance)
                 continue;
-            }
             bestDistance = distance;
             best = entry;
         }
@@ -652,9 +560,8 @@ final class NearbyTracker {
         entry.record.z = z;
         entry.seenAt = now;
         entry.left = false;
-        if (changed) {
+        if (changed)
             entry.movedAt = now;
-        }
         return changed;
     }
 
@@ -682,11 +589,9 @@ final class NearbyTracker {
     }
 
     private void dropTokens(String key) {
-        for (Iterator<Map.Entry<String, String>> iterator = tokenToKey.entrySet().iterator();
-             iterator.hasNext(); ) {
-            if (key.equals(iterator.next().getValue())) {
+        for (Iterator<Map.Entry<String, String>> iterator = tokenToKey.entrySet().iterator(); iterator.hasNext();) {
+            if (key.equals(iterator.next().getValue()))
                 iterator.remove();
-            }
         }
     }
 }

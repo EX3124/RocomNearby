@@ -25,9 +25,9 @@ final class NearbyTracker {
     static final long MAX_AGE_MS = 90000L;
     private static final long BLOODLINE_NIGHTMARE = 23L;
     private static final long BLOODLINE_STRANGE = 24L;
-    private static final long VARIANT_COLOUR = 1L;
-    private static final long VARIANT_WILD_BLIGHT = 4L;
-    private static final long VARIANT_DRAGON_BLIGHT = 32L;
+    private static final long VARIANT_SHINY = 1L;
+    private static final long VARIANT_WILD_POLLUTION = 4L;
+    private static final long VARIANT_DRAGON_POLLUTION = 32L;
     static final long CAUGHT_SUPPRESS_MS = 600000L;
     static final long CAUGHT_SWEEP_MS = 60000L;
     private static final int MIN_CFG_ID = EntityParser.MIN_CFG_ID;
@@ -306,20 +306,20 @@ final class NearbyTracker {
     private List<Badge> battleBadges(BattleUnit unit) {
         List<Badge> out = new ArrayList<>(6);
         addNatureBadge(out, unit.nature);
-        if (unit.bloodLine == BLOODLINE_NIGHTMARE && isBlightVariant(unit.variant))
+        if (unit.bloodLine == BLOODLINE_NIGHTMARE && isPollution(unit.variant))
             addBadge(out, Badge.of(Badge.Kind.POLLUTION));
         if (unit.bloodLine == BLOODLINE_STRANGE)
             addBadge(out, Badge.of(Badge.Kind.STRANGE));
-        if (unit.variant == VARIANT_COLOUR)
-            addBadge(out, Badge.of(Badge.Kind.COLORFUL));
+        if (unit.variant == VARIANT_SHINY)
+            addBadge(out, Badge.of(Badge.Kind.SHINY));
         addBloodlineBadge(out, unit.bloodLine);
         addSizeBadge(out, SpeciesSizes.weightPercentileForSpecies(unit.speciesId, unit.weight));
         addVoiceBadge(out, unit.voice);
         return out;
     }
 
-    private static boolean isBlightVariant(long variant) {
-        return variant == VARIANT_WILD_BLIGHT || variant == VARIANT_DRAGON_BLIGHT;
+    private static boolean isPollution(long variant) {
+        return variant == VARIANT_WILD_POLLUTION || variant == VARIANT_DRAGON_POLLUTION;
     }
 
     private static void addBloodlineBadge(List<Badge> out, long bloodline) {

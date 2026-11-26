@@ -285,8 +285,6 @@ public final class NearbyListView extends LinearLayout {
             voice.setTextColor(hotColor(entity.voice >= NearbyEntity.VOICE_HIGH || entity.voice <= NearbyEntity.VOICE_LOW));
             if (entity.fighting)
                 root.setBackgroundResource(R.drawable.bg_entity_fight);
-            else if (entity.hasBadge(Badge.Kind.POLLUTION))
-                root.setBackgroundResource(R.drawable.bg_entity_pollution);
             else if (!entity.badges.isEmpty())
                 root.setBackgroundResource(R.drawable.bg_entity_special);
             else root.setBackgroundResource(R.drawable.bg_entity_normal);
@@ -304,7 +302,7 @@ public final class NearbyListView extends LinearLayout {
                         continue;
                     TextView chip = chipAt(shown);
                     chip.setText(text);
-                    chip.setBackgroundResource(badge.kind == Badge.Kind.POLLUTION ? R.drawable.badge_pollution : R.drawable.badge);
+                    applyBadgeBackground(chip, badge);
                     chip.setVisibility(VISIBLE);
                     if (alerts != null) {
                         String alert = NearbyAlertNotification.announceBadge(getContext(), entity, badge);
@@ -440,6 +438,10 @@ public final class NearbyListView extends LinearLayout {
             if (entity == null) return;
             natureExpanded = !natureExpanded;
             bindBadges(entity, null);
+        }
+
+        private void applyBadgeBackground(TextView chip, Badge badge) {
+            chip.setBackground(BadgePalette.badgeTint(getContext(), badge));
         }
 
         private TextView chipAt(int index) {

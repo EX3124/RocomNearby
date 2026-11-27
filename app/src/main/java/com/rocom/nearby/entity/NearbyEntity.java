@@ -28,8 +28,11 @@ public final class NearbyEntity {
     public final double worldY;
     public final boolean fighting;
     public final long gender;
-    public final long battlestate;
-    public NearbyEntity(@Nullable String name, int level, @Nullable List<Badge> badges, double heightMeters, double weightKg, double voice, double heightPercentile, double weightPercentile, double worldX, double worldY, boolean fighting, long gender, long battlestate) {
+    public final long battleState;
+    public final long battleOrder;
+    public final boolean fightReverted;
+
+    public NearbyEntity(@Nullable String name, int level, @Nullable List<Badge> badges, double heightMeters, double weightKg, double voice, double heightPercentile, double weightPercentile, double worldX, double worldY, boolean fighting, long gender, long battleState, long battleOrder, boolean fightReverted) {
         this.name = name;
         this.level = level;
         this.badges = freezeBadges(badges);
@@ -42,7 +45,9 @@ public final class NearbyEntity {
         this.worldY = worldY;
         this.fighting = fighting;
         this.gender = gender;
-        this.battlestate = battlestate;
+        this.battleState = battleState;
+        this.battleOrder = battleOrder;
+        this.fightReverted = fightReverted;
     }
 
     public boolean hasBadge(Badge.Kind kind) {

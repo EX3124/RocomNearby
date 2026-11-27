@@ -39,6 +39,7 @@
     <string name="fight_preparation">In preparation</string>
     <string name="fight_substitute">Substitute</string>
     <string name="fight_dizziness">Dizziness</string>
+    <string name="fight_leave">Leave</string>
 
     <string name="overlay_button">Float window</string>
     <string name="overlay_empty">Display during battle</string>

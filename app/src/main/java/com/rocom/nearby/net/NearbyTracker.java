@@ -296,7 +296,7 @@ final class NearbyTracker {
             name = SpeciesNames.speciesLookup(unit.speciesId);
         if (name == null)
             name = SpeciesNames.speciesName(unit.speciesId);
-        return new NearbyEntity(name, (int) unit.level, battleBadges(unit), unit.heightMeters(), unit.weightKg(), unit.voice, SpeciesSizes.heightPercentileForSpecies(unit.speciesId, unit.height), SpeciesSizes.weightPercentileForSpecies(unit.speciesId, unit.weight), Double.NaN, Double.NaN, true, unit.gender, unit.battlestate);
+        return new NearbyEntity(name, (int) unit.level, battleBadges(unit), unit.heightMeters(), unit.weightKg(), unit.voice, SpeciesSizes.heightPercentileForSpecies(unit.speciesId, unit.height), SpeciesSizes.weightPercentileForSpecies(unit.speciesId, unit.weight), Double.NaN, Double.NaN, true, unit.gender, unit.battleState, unit.battleOrder, battle.reverted(unit));
     }
 
     private static void addNatureBadge(List<Badge> out, long nature) {
@@ -378,7 +378,7 @@ final class NearbyTracker {
 
     private NearbyEntity toEntity(EntityRecord record) {
         String name = SpeciesNames.formName(record.cfgId);
-        return new NearbyEntity(name, (int) record.level, badges(record), record.heightMeters(), record.weightKg(), record.hasVoice() ? record.voice : NearbyEntity.UNKNOWN, SpeciesSizes.heightPercentileForForm(record.cfgId, record.height), SpeciesSizes.weightPercentileForForm(record.cfgId, record.weight), record.x, record.y, false, 0L, 0L);
+        return new NearbyEntity(name, (int) record.level, badges(record), record.heightMeters(), record.weightKg(), record.hasVoice() ? record.voice : NearbyEntity.UNKNOWN, SpeciesSizes.heightPercentileForForm(record.cfgId, record.height), SpeciesSizes.weightPercentileForForm(record.cfgId, record.weight), record.x, record.y, false, 0L, 0L, 0L, false);
     }
 
     static List<Badge> badges(EntityRecord record) {

@@ -13,10 +13,10 @@ final class BattleUnit {
     final long variant;
     final long bloodLine;
     final long gender;
-    final long battlestate;
-    final long battleorder;
+    final long battleState;
+    final long battleOrder;
 
-    BattleUnit(long gid, long speciesId, long confId, long level, long height, long weight, long voice, long nature, long variant, long bloodLine, long gender, long battlestate, long battleorder) {
+    BattleUnit(long gid, long speciesId, long confId, long level, long height, long weight, long voice, long nature, long variant, long bloodLine, long gender, long battleState, long battleOrder) {
         this.gid = gid;
         this.speciesId = speciesId;
         this.confId = confId;
@@ -28,8 +28,8 @@ final class BattleUnit {
         this.variant = variant;
         this.bloodLine = bloodLine;
         this.gender = gender;
-        this.battlestate = battlestate;
-        this.battleorder = battleorder;
+        this.battleState = battleState;
+        this.battleOrder = battleOrder;
     }
 
     double heightMeters() {

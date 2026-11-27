@@ -161,37 +161,45 @@ public final class NearbyListView extends LinearLayout {
             rows.get(i).root.setVisibility(GONE);
     }
 
-    private static final int BATTLE_PREPARATION = 10273;
-    private static final int BATTLE_PREPARATION_BOSS = 2033697;
-    private static final int BATTLE_PREPARATION_TIMED = 2081;
-    private static final int BATTLE_PREPARATION_MULTI = 10241;
-    private static final int BATTLE_PREPARATION_PVP = 2049;
-    private static final int BATTLE_FIGHTING = 4204837;
-    private static final int BATTLE_FIGHTING_BOSS = 4196645;
-    private static final int BATTLE_FIGHTING_TIMED = 4196641;
-    private static final int BATTLE_FIGHTING_MULTI = 4204805;
-    private static final int BATTLE_SUBSTITUTE = 4204801;
-    private static final int BATTLE_DIZZINESS = 6228257;
+    public static final int BATTLE_PREPARATION = 10273;
+    public static final int BATTLE_PREPARATION_BOSS = 2033697;
+    public static final int BATTLE_PREPARATION_TIMED = 2081;
+    public static final int BATTLE_PREPARATION_MULTI = 10241;
+    public static final int BATTLE_PREPARATION_PVP = 2049;
+    public static final int BATTLE_FIGHTING = 4204837;
+    public static final int BATTLE_FIGHTING_BOSS = 4196645;
+    public static final int BATTLE_FIGHTING_TIMED = 4196641;
+    public static final int BATTLE_FIGHTING_MULTI = 4204805;
+    public static final int BATTLE_FIGHTING_STORY = 4196613;
+    public static final int BATTLE_SUBSTITUTE = 4204801;
+    public static final int BATTLE_SUBSTITUTE_STORY = 4196609;
+    public static final int BATTLE_DIZZINESS = 6228257;
 
-    private int fightLabel(long battlestate) {
-        switch ((int) battlestate) {
+    private String fightLabel(NearbyEntity entity) {
+        switch ((int) entity.battleState) {
             case BATTLE_PREPARATION:
             case BATTLE_PREPARATION_BOSS:
             case BATTLE_PREPARATION_TIMED:
             case BATTLE_PREPARATION_MULTI:
             case BATTLE_PREPARATION_PVP:
-                return R.string.fight_preparation;
+                return getResources().getString(R.string.fight_preparation);
             case BATTLE_FIGHTING:
             case BATTLE_FIGHTING_BOSS:
             case BATTLE_FIGHTING_TIMED:
             case BATTLE_FIGHTING_MULTI:
-                return R.string.fight_fighting;
+            case BATTLE_FIGHTING_STORY:
+                return getResources().getString(R.string.fight_fighting);
             case BATTLE_SUBSTITUTE:
-                return R.string.fight_substitute;
+            case BATTLE_SUBSTITUTE_STORY:
+                if (entity.fightReverted)
+                    return getResources().getString(R.string.fight_leave);
+                if (entity.battleOrder == 0)
+                    return getResources().getString(R.string.fight_fighting);
+                return getResources().getString(R.string.fight_substitute);
             case BATTLE_DIZZINESS:
-                return R.string.fight_dizziness;
+                return getResources().getString(R.string.fight_dizziness);
             default:
-                return R.string.fight_fighting;
+                return String.valueOf(entity.battleState);
         }
     }
 
@@ -267,7 +275,7 @@ public final class NearbyListView extends LinearLayout {
             if (entity.fighting) {
                 bearing.setVisibility(GONE);
                 distance.setVisibility(GONE);
-                fight.setText(fightLabel(entity.battlestate));
+                fight.setText(fightLabel(entity));
                 fight.setVisibility(VISIBLE);
             } else {
                 fight.setVisibility(GONE);

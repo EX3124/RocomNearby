@@ -1,9 +1,12 @@
 package com.rocom.nearby.net;
 
+import com.rocom.nearby.entity.NearbyListView;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -16,9 +19,6 @@ final class BattleTracker {
     private static final int[] UNIT_OPCODES = {4886, 4890};
     private static final int[] END_OPCODES = {4908, 4922};
     private static final int[] ACTIVITY_OPCODES = {579, 4900, 4898, 4876, 4870, 4884};
-    private static final long BATTLE_PREPARATION_MULTI = 10241L;
-    private static final long BATTLE_FIGHTING_MULTI_FIELD = 4204805L;
-    private static final long BATTLE_FIGHTING_MULTI_BENCH = 4204801L;
     private static final int RANK_FIELD = 0;
     private static final int RANK_PREPARE = 1;
     private static final int RANK_BENCH = 2;
@@ -30,9 +30,13 @@ final class BattleTracker {
     private List<BattleUnit> lastEnemies = Collections.emptyList();
     private int lastOnField;
     private BattleParser.Result result;
-    private final Map<Long, Long> lastStateBySlot = new HashMap<>();
-    private final Map<Long, Long> revertedAt = new HashMap<>();
-    private long revertCount;
+    private final Set<String> foughtKeys = new HashSet<>();
+    private final Map<String, Long> leftAt = new HashMap<>();
+    private long leftCount;
+
+    boolean reverted(BattleUnit unit) {
+        return unit != null && leftAt.containsKey(unit.key());
+    }
 
     void reset() {
         clearFrame();
@@ -45,9 +49,9 @@ final class BattleTracker {
         onField = 0;
         enemyTeams.clear();
         updatedAt = 0L;
-        lastStateBySlot.clear();
-        revertedAt.clear();
-        revertCount = 0L;
+        foughtKeys.clear();
+        leftAt.clear();
+        leftCount = 0L;
     }
 
     static boolean handles(int opcode) {
@@ -112,7 +116,7 @@ final class BattleTracker {
     }
 
     private boolean acceptSingle(BattleUnit unit, long now) {
-        boolean changed = enemies.size() != 1 || !enemies.get(0).key().equals(unit.key()) || enemies.get(0).bloodLine != unit.bloodLine || enemies.get(0).variant != unit.variant || enemies.get(0).gender != unit.gender || enemies.get(0).battlestate != unit.battlestate || enemies.get(0).battleorder != unit.battleorder;
+        boolean changed = enemies.size() != 1 || !enemies.get(0).key().equals(unit.key()) || enemies.get(0).bloodLine != unit.bloodLine || enemies.get(0).variant != unit.variant || enemies.get(0).gender != unit.gender || enemies.get(0).battleState != unit.battleState || enemies.get(0).battleOrder != unit.battleOrder;
         List<BattleUnit> next = new ArrayList<>(1);
         next.add(unit);
         enemies = next;
@@ -133,7 +137,7 @@ final class BattleTracker {
         List<String> out = new ArrayList<>(units.size());
         for (int i = 0; i < units.size(); i++) {
             BattleUnit unit = units.get(i);
-            out.add(unit.bloodLine + ":" + unit.variant + ":" + unit.gender + ":" + unit.battlestate + ":" + unit.battleorder);
+            out.add(unit.bloodLine + ":" + unit.variant + ":" + unit.gender + ":" + unit.battleState + ":" + unit.battleOrder);
         }
         return out;
     }
@@ -149,7 +153,7 @@ final class BattleTracker {
 
     private static boolean isMultiBattle(List<BattleUnit> units) {
         for (int i = 0; i < units.size(); i++) {
-            if (units.get(i).battleorder != 0L)
+            if (units.get(i).battleOrder != 0L)
                 return true;
         }
         return false;
@@ -157,28 +161,43 @@ final class BattleTracker {
 
     private static boolean isPreparation(List<BattleUnit> units) {
         for (int i = 0; i < units.size(); i++) {
-            if (units.get(i).battlestate == BATTLE_PREPARATION_MULTI)
+            if (units.get(i).battleState == NearbyListView.BATTLE_PREPARATION_MULTI)
                 return true;
         }
         return false;
     }
 
+    private static boolean isOnField(long state) {
+        return state == NearbyListView.BATTLE_FIGHTING_MULTI || state == NearbyListView.BATTLE_FIGHTING || state == NearbyListView.BATTLE_FIGHTING_STORY || state == NearbyListView.BATTLE_FIGHTING_TIMED || state == NearbyListView.BATTLE_FIGHTING_BOSS || state == NearbyListView.BATTLE_DIZZINESS;
+    }
+
+    private static boolean isSubstitute(long state) {
+        return state == NearbyListView.BATTLE_SUBSTITUTE || state == NearbyListView.BATTLE_SUBSTITUTE_STORY;
+    }
+
     private void trackSlots(List<BattleUnit> units) {
-        if (isPreparation(units)) {
-            revertedAt.clear();
-            revertCount = 0L;
+        boolean anyOnField = false;
+        for (int i = 0; i < units.size(); i++) {
+            if (isOnField(units.get(i).battleState)) {
+                anyOnField = true;
+                break;
+            }
+        }
+        if (!anyOnField && isPreparation(units)) {
+            foughtKeys.clear();
+            leftAt.clear();
+            leftCount = 0L;
         }
         for (int i = 0; i < units.size(); i++) {
             BattleUnit unit = units.get(i);
-            long slot = unit.battleorder;
-            if (slot == 0L)
+            if (unit.battleOrder == 0L)
                 continue;
-            Long previous = lastStateBySlot.get(slot);
-            if (previous != null && previous == BATTLE_FIGHTING_MULTI_FIELD && unit.battlestate == BATTLE_FIGHTING_MULTI_BENCH)
-                revertedAt.put(slot, ++revertCount);
-            else if (unit.battlestate == BATTLE_FIGHTING_MULTI_FIELD)
-                revertedAt.remove(slot);
-            lastStateBySlot.put(slot, unit.battlestate);
+            String key = unit.key();
+            if (isOnField(unit.battleState)) {
+                foughtKeys.add(key);
+                leftAt.remove(key);
+            } else if (isSubstitute(unit.battleState) && foughtKeys.contains(key) && !leftAt.containsKey(key))
+                leftAt.put(key, ++leftCount);
         }
     }
 
@@ -194,24 +213,24 @@ final class BattleTracker {
                 if (byStamp != 0)
                     return byStamp;
             }
-            int bySlot = Integer.compare((int) (left.battleorder % 10L), (int) (right.battleorder % 10L));
+            int bySlot = Integer.compare((int) (left.battleOrder % 10L), (int) (right.battleOrder % 10L));
             if (bySlot != 0)
                 return bySlot;
-            return Long.compare(left.battleorder / 10L, right.battleorder / 10L);
+            return Long.compare(left.battleOrder / 10L, right.battleOrder / 10L);
         };
     }
 
     private int rank(BattleUnit unit) {
-        long state = unit.battlestate;
-        if (state == BATTLE_FIGHTING_MULTI_FIELD)
+        long state = unit.battleState;
+        if (isOnField(state))
             return RANK_FIELD;
-        if (state == BATTLE_FIGHTING_MULTI_BENCH)
-            return revertedAt.containsKey(unit.battleorder) ? RANK_REVERTED : RANK_BENCH;
+        if (isSubstitute(state))
+            return leftAt.containsKey(unit.key()) ? RANK_REVERTED : RANK_BENCH;
         return RANK_PREPARE;
     }
 
     private long stampOf(BattleUnit unit) {
-        Long stamp = revertedAt.get(unit.battleorder);
+        Long stamp = leftAt.get(unit.key());
         return stamp == null ? 0L : stamp;
     }
 

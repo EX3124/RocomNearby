@@ -34,6 +34,7 @@
     <string name="fight_preparation">准备战斗</string>
     <string name="fight_substitute">替补</string>
     <string name="fight_dizziness">眩晕</string>
+    <string name="fight_leave">下场</string>
 
     <string name="overlay_button">悬浮窗</string>
     <string name="overlay_empty">进入战斗后显示</string>

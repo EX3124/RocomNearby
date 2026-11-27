@@ -354,14 +354,14 @@ final class BattleParser {
     private static BattleUnit withSlot(BattleUnit unit, byte[] plain, ProtoScan.Field slot) {
         List<ProtoScan.Field> kids = ProtoScan.scan(plain, slot.valueStart, slot.valueEnd);
         ProtoScan.Field info = ProtoScan.first(kids, FIELD_SLOT_INFO, ProtoScan.WIRE_LENGTH);
-        long battlestate = 0L;
-        long battleorder = 0L;
+        long battleState = 0L;
+        long battleOrder = 0L;
         if (info != null) {
             List<ProtoScan.Field> inner = ProtoScan.scan(plain, info.valueStart, info.valueEnd);
-            battlestate = value(inner, FIELD_BATTLESTATE);
-            battleorder = value(inner, FIELD_BATTLEORDER);
+            battleState = value(inner, FIELD_BATTLESTATE);
+            battleOrder = value(inner, FIELD_BATTLEORDER);
         }
-        return new BattleUnit(unit.gid, unit.speciesId, unit.confId, unit.level, unit.height, unit.weight, unit.voice, unit.nature, unit.variant, unit.bloodLine, unit.gender, battlestate, battleorder);
+        return new BattleUnit(unit.gid, unit.speciesId, unit.confId, unit.level, unit.height, unit.weight, unit.voice, unit.nature, unit.variant, unit.bloodLine, unit.gender, battleState, battleOrder);
     }
 
     private static long[] fingerprint(List<ProtoScan.Field> fields) {
